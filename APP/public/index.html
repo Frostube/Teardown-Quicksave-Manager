@@ -11,37 +11,24 @@
     <main class="app-shell">
       <header class="window-bar">
         <div class="brand" aria-label="Teardown Scenario Manager">
-          <svg class="brand-mark" viewBox="0 0 64 64" aria-hidden="true">
-            <path d="M32 5 56 18.5v27L32 59 8 45.5v-27L32 5Z"></path>
-            <path d="M23 21h18l-9 8 12 14H27l5-7-12-13Z"></path>
-          </svg>
+          <img class="brand-logo" src="./assets/teardown_logo.svg" alt="Teardown">
           <div class="brand-copy">
-            <div class="brand-title">TEARDOWN</div>
             <div class="brand-subtitle">SCENARIO MANAGER</div>
+            <div class="brand-disclaimer">(Community-made tool. Not affiliated with Tuxedo Labs.)</div>
           </div>
         </div>
 
         <nav class="top-tabs" aria-label="Primary">
           <button class="top-tab active" id="refreshButton" type="button">
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M3 7h6l2 2h10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"></path>
-              <path d="M3 7V5a2 2 0 0 1 2-2h4l2 2h6a2 2 0 0 1 2 2v2"></path>
-            </svg>
+            <span class="icon icon-folder" aria-hidden="true"></span>
             <span>Library</span>
           </button>
           <button class="top-tab" id="revealButton" type="button">
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M3 12a9 9 0 1 0 3-6.7"></path>
-              <path d="M3 4v5h5"></path>
-              <path d="M12 7v5l4 2"></path>
-            </svg>
+            <span class="icon icon-history" aria-hidden="true"></span>
             <span>Backups</span>
           </button>
           <button class="top-tab" id="settingsButton" type="button">
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <circle cx="12" cy="12" r="3"></circle>
-              <path d="M19.4 15a1.8 1.8 0 0 0 .4 2l.1.1-2.1 2.1-.1-.1a1.8 1.8 0 0 0-2-.4 1.8 1.8 0 0 0-1.1 1.7V21h-3v-.6a1.8 1.8 0 0 0-1.1-1.7 1.8 1.8 0 0 0-2 .4l-.1.1-2.1-2.1.1-.1a1.8 1.8 0 0 0 .4-2 1.8 1.8 0 0 0-1.7-1.1H4v-3h.6a1.8 1.8 0 0 0 1.7-1.1 1.8 1.8 0 0 0-.4-2l-.1-.1 2.1-2.1.1.1a1.8 1.8 0 0 0 2 .4A1.8 1.8 0 0 0 11.1 4V3h3v1a1.8 1.8 0 0 0 1.1 1.7 1.8 1.8 0 0 0 2-.4l.1-.1 2.1 2.1-.1.1a1.8 1.8 0 0 0-.4 2 1.8 1.8 0 0 0 1.7 1.1h.4v3h-.4a1.8 1.8 0 0 0-1.2 1.5Z"></path>
-            </svg>
+            <span class="icon icon-settings" aria-hidden="true"></span>
             <span>Settings</span>
           </button>
         </nav>
@@ -63,44 +50,25 @@
         <section class="library-panel panel" aria-label="Save library">
           <div class="library-toolbar">
             <label class="search-box" for="searchInput">
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <circle cx="11" cy="11" r="7"></circle>
-                <path d="m16.5 16.5 4 4"></path>
-              </svg>
+              <span class="icon icon-search" aria-hidden="true"></span>
               <input id="searchInput" type="search" placeholder="Search scenarios..." autocomplete="off">
             </label>
             <div class="filter-group" aria-label="Library filters">
               <button class="filter-chip" type="button" data-filter="official">
-                <svg viewBox="0 0 24 24" aria-hidden="true">
-                  <circle cx="12" cy="12" r="9"></circle>
-                  <path d="M3 12h18"></path>
-                  <path d="M12 3a14 14 0 0 1 0 18"></path>
-                  <path d="M12 3a14 14 0 0 0 0 18"></path>
-                </svg>
+                <span class="icon icon-globe" aria-hidden="true"></span>
                 <span>Official</span>
               </button>
               <button class="filter-chip" type="button" data-filter="workshop">
-                <svg viewBox="0 0 24 24" aria-hidden="true">
-                  <path d="M14.7 6.3a4 4 0 0 0 4.9 4.9l-8.4 8.4a2.2 2.2 0 0 1-3.1-3.1Z"></path>
-                  <path d="m4 4 5 5"></path>
-                  <path d="m5 3-2 2 3 3 2-2Z"></path>
-                </svg>
+                <span class="icon icon-puzzle" aria-hidden="true"></span>
                 <span>Workshop</span>
               </button>
               <button class="filter-chip" type="button" data-filter="legacy">
-                <svg viewBox="0 0 24 24" aria-hidden="true">
-                  <path d="M6 7h12v12H6Z"></path>
-                  <path d="M9 4h6"></path>
-                  <path d="M9 11h6"></path>
-                </svg>
+                <span class="icon icon-hammer" aria-hidden="true"></span>
                 <span>Legacy</span>
               </button>
             </div>
             <button class="add-button" id="newSaveButton" type="button" aria-label="Save current quicksave">
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M12 5v14"></path>
-                <path d="M5 12h14"></path>
-              </svg>
+              <span class="icon icon-plus" aria-hidden="true"></span>
             </button>
           </div>
 
@@ -109,17 +77,13 @@
 
           <footer class="library-footer">
             <div class="save-count">
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <ellipse cx="12" cy="5" rx="8" ry="3"></ellipse>
-                <path d="M4 5v6c0 1.7 3.6 3 8 3s8-1.3 8-3V5"></path>
-                <path d="M4 11v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6"></path>
-              </svg>
+              <span class="icon icon-database" aria-hidden="true"></span>
               <span id="saveCount">0 saves</span>
             </div>
             <div class="storage-location">
               <span>Storage location:</span>
               <span id="managerPath"></span>
-              <button class="text-link" id="pathsButton" type="button">Change...</button>
+              <button class="text-link" id="pathsButton" type="button">Paths...</button>
             </div>
           </footer>
         </section>
@@ -131,7 +95,10 @@
 
           <div class="detail-content hidden" id="detailContent">
             <h2 class="panel-title">SELECTED SCENARIO</h2>
-            <div class="scenario-hero scene-0" id="detailHero" aria-hidden="true"></div>
+            <div class="preview-frame">
+              <div class="scenario-hero scene-0" id="detailHero" aria-hidden="true"></div>
+              <button class="preview-upload-button" id="uploadPreviewButton" type="button">Upload Preview</button>
+            </div>
             <div class="detail-heading">
               <h3 id="detailName"></h3>
               <span class="active-pill hidden" id="activatedPill">Last activated</span>
@@ -143,7 +110,7 @@
                 <dd id="detailMap"></dd>
               </div>
               <div>
-                <dt>Required mods:</dt>
+                <dt>Teardown ver.:</dt>
                 <dd id="detailVersion"></dd>
               </div>
               <div>
@@ -168,17 +135,33 @@
               </div>
             </dl>
 
+            <section class="mods-panel" aria-label="Required mods">
+              <div class="mods-panel-header">
+                <div>
+                  <h4>Required Mods</h4>
+                  <p id="modsSource">No mod snapshot captured.</p>
+                </div>
+                <strong id="detailModsSummary">Not captured</strong>
+              </div>
+              <div class="mods-toolbar">
+                <label class="modlist-compare-field">
+                  <span>Compare against</span>
+                  <select id="modlistSelect" aria-label="Compare against Teardown modlist"></select>
+                </label>
+                <button class="ghost-button compact" id="captureModsButton" type="button">Capture</button>
+                <button class="ghost-button compact" id="compareModsButton" type="button">Compare</button>
+                <button class="ghost-button compact" id="copyModLinksButton" type="button">Copy Links</button>
+              </div>
+              <div class="mods-list" id="requiredModsList"></div>
+            </section>
+
             <section class="instructions-box" aria-label="Instructions">
               <div class="instruction-title">
-                <svg viewBox="0 0 24 24" aria-hidden="true">
-                  <circle cx="12" cy="12" r="9"></circle>
-                  <path d="M12 8h.01"></path>
-                  <path d="M11 11h1v5h1"></path>
-                </svg>
+                <span class="icon icon-circle-alert" aria-hidden="true"></span>
                 <span>INSTRUCTIONS</span>
               </div>
               <ol>
-                <li>Click Load into Teardown</li>
+                <li>Click Load & Launch Teardown</li>
                 <li id="detailInstruction"></li>
                 <li>Press F9 / Quickload</li>
               </ol>
@@ -186,43 +169,20 @@
 
             <div class="detail-actions">
               <button class="primary-button" id="activateButton" type="button">
-                <svg viewBox="0 0 24 24" aria-hidden="true">
-                  <path d="M7 10V6h10v4"></path>
-                  <path d="M5 10h14v10H5Z"></path>
-                  <path d="M12 13v4"></path>
-                  <path d="M9 16h6"></path>
-                </svg>
-                <span>Load into Teardown</span>
-              </button>
-              <button class="launch-button" id="openTeardownButton" type="button">
-                <svg viewBox="0 0 24 24" aria-hidden="true">
-                  <path d="m8 5 11 7-11 7Z"></path>
-                </svg>
-                <span>Launch Teardown</span>
+                <span class="icon icon-package-2" aria-hidden="true"></span>
+                <span>Load & Launch Teardown</span>
               </button>
               <div class="detail-action-grid">
                 <button class="ghost-button" id="copyPathButton" type="button">
-                  <svg viewBox="0 0 24 24" aria-hidden="true">
-                    <path d="M12 3v12"></path>
-                    <path d="m7 8 5-5 5 5"></path>
-                    <path d="M5 15v5h14v-5"></path>
-                  </svg>
-                  <span>Export</span>
+                  <span class="icon icon-folder" aria-hidden="true"></span>
+                  <span>Open Folder</span>
                 </button>
                 <button class="ghost-button" id="updateButton" type="button">
-                  <svg viewBox="0 0 24 24" aria-hidden="true">
-                    <path d="m16 5 3 3L8 19H5v-3Z"></path>
-                  </svg>
+                  <span class="icon icon-pencil" aria-hidden="true"></span>
                   <span>Edit</span>
                 </button>
                 <button class="danger-button" id="deleteButton" type="button">
-                  <svg viewBox="0 0 24 24" aria-hidden="true">
-                    <path d="M4 7h16"></path>
-                    <path d="M10 11v6"></path>
-                    <path d="M14 11v6"></path>
-                    <path d="M6 7l1 14h10l1-14"></path>
-                    <path d="M9 7V4h6v3"></path>
-                  </svg>
+                  <span class="icon icon-trash-2" aria-hidden="true"></span>
                   <span>Delete</span>
                 </button>
               </div>
@@ -233,18 +193,12 @@
 
       <footer class="bottom-status">
         <div class="backup-copy">
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M12 3 20 6v6c0 5-3.4 7.9-8 9-4.6-1.1-8-4-8-9V6Z"></path>
-            <path d="m8.5 12 2.2 2.2 4.8-5"></path>
-          </svg>
+          <span class="icon icon-circle-alert warning-icon" aria-hidden="true"></span>
           <span>Your current quicksave will be backed up automatically.</span>
         </div>
         <button class="backup-link" id="backupButton" type="button">
           <span>Open Backups Folder</span>
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M3 7h6l2 2h10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"></path>
-            <path d="M3 7V5a2 2 0 0 1 2-2h4l2 2h6a2 2 0 0 1 2 2v2"></path>
-          </svg>
+          <span class="icon icon-folder" aria-hidden="true"></span>
         </button>
       </footer>
     </main>
@@ -271,9 +225,14 @@
           </select>
         </label>
         <label class="field">
-          <span>Required mods</span>
-          <input id="createTeardownVersion" type="text" maxlength="60" placeholder="None">
+          <span>Teardown version</span>
+          <input id="createTeardownVersion" type="text" maxlength="60" placeholder="2.0.1">
         </label>
+        <label class="field">
+          <span>Detected active modlist</span>
+          <select id="createModlistInput"></select>
+        </label>
+        <p class="dialog-note">Required mods are captured automatically from this modlist when the quicksave is stored.</p>
         <label class="field">
           <span>Load instruction</span>
           <input id="createRequiredMapHint" type="text" maxlength="180" placeholder="Open Lee Chemicals in Teardown">
@@ -311,7 +270,7 @@
           </select>
         </label>
         <label class="field">
-          <span>Required mods</span>
+          <span>Teardown version</span>
           <input id="teardownVersionInput" type="text" maxlength="60">
         </label>
         <label class="field">
@@ -380,6 +339,7 @@
       </form>
     </dialog>
 
+    <input class="hidden" id="previewFileInput" type="file" accept="image/png,image/jpeg,image/webp">
     <div class="toast hidden" id="toast" role="status" aria-live="polite"></div>
     <script src="./app.js"></script>
   </body>

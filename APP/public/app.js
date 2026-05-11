@@ -2,6 +2,7 @@ const state = {
   status: null,
   saves: [],
   settings: null,
+  modInventory: null,
   selectedId: null,
   query: "",
   filter: "all"
@@ -14,11 +15,14 @@ const elements = {
   saveCount: $("#saveCount"),
   saveList: $("#saveList"),
   searchInput: $("#searchInput"),
+  topTabs: Array.from(document.querySelectorAll(".top-tab")),
   filterButtons: Array.from(document.querySelectorAll("[data-filter]")),
   emptyDetail: $("#emptyDetail"),
   detailView: $("#detailView"),
   detailContent: $("#detailContent"),
   detailHero: $("#detailHero"),
+  uploadPreviewButton: $("#uploadPreviewButton"),
+  previewFileInput: $("#previewFileInput"),
   detailName: $("#detailName"),
   detailCreated: $("#detailCreated"),
   detailMap: $("#detailMap"),
@@ -28,6 +32,13 @@ const elements = {
   detailCompatibility: $("#detailCompatibility"),
   detailNotes: $("#detailNotes"),
   detailInstruction: $("#detailInstruction"),
+  detailModsSummary: $("#detailModsSummary"),
+  modsSource: $("#modsSource"),
+  modlistSelect: $("#modlistSelect"),
+  requiredModsList: $("#requiredModsList"),
+  captureModsButton: $("#captureModsButton"),
+  compareModsButton: $("#compareModsButton"),
+  copyModLinksButton: $("#copyModLinksButton"),
   nameInput: $("#nameInput"),
   mapNameInput: $("#mapNameInput"),
   mapTypeInput: $("#mapTypeInput"),
@@ -40,6 +51,7 @@ const elements = {
   createMapName: $("#createMapName"),
   createMapType: $("#createMapType"),
   createTeardownVersion: $("#createTeardownVersion"),
+  createModlistInput: $("#createModlistInput"),
   createRequiredMapHint: $("#createRequiredMapHint"),
   createNotes: $("#createNotes"),
   editDialog: $("#editDialog"),
@@ -55,19 +67,9 @@ const elements = {
   toast: $("#toast")
 };
 
-const iconStar = `
-  <svg viewBox="0 0 24 24" aria-hidden="true">
-    <path d="m12 3 2.8 5.8 6.4.9-4.6 4.5 1.1 6.3-5.7-3-5.7 3 1.1-6.3-4.6-4.5 6.4-.9Z"></path>
-  </svg>
-`;
+const iconStar = `<span class="icon icon-star" aria-hidden="true"></span>`;
 
-const iconMenu = `
-  <svg viewBox="0 0 24 24" aria-hidden="true">
-    <path d="M12 5h.01"></path>
-    <path d="M12 12h.01"></path>
-    <path d="M12 19h.01"></path>
-  </svg>
-`;
+const iconMenu = `<span class="icon icon-ellipsis-vertical" aria-hidden="true"></span>`;
 
 function formatDate(value) {
   if (!value) return "-";
@@ -157,10 +159,77 @@ function sceneClass(save) {
   return `scene-${sceneIndex(save)}`;
 }
 
+function previewStyle(save) {
+  return save.thumbnail ? `url("${save.thumbnail}")` : "";
+}
+
 function automaticBackupText(mode, every, noun) {
   if (mode === "always") return `Automatic backup: every ${noun}.`;
   if (mode === "never") return `Automatic backup: disabled for ${noun}s.`;
   return `Automatic backup: every ${every} ${noun}s.`;
+}
+
+function currentModlistId() {
+  return elements.modlistSelect.value || state.modInventory?.selectedModlistId || "";
+}
+
+function modlists() {
+  return state.modInventory?.modlists || [];
+}
+
+function modsMap() {
+  return new Map((state.modInventory?.mods || []).map((mod) => [mod.id, mod]));
+}
+
+function activeModSet(modlistId = currentModlistId()) {
+  const list = modlists().find((item) => item.id === modlistId) || modlists()[0];
+  return new Set(list?.mods || []);
+}
+
+function requiredMods(save) {
+  return save?.requiredMods?.mods || [];
+}
+
+function modStatus(mod, activeIds = activeModSet(), knownMods = modsMap()) {
+  const current = knownMods.get(mod.id);
+  if (!current?.installed && !mod.installed) return { label: "Missing", tone: "missing" };
+  if (!activeIds.has(mod.id)) return { label: "Inactive", tone: "inactive" };
+  return { label: "Active", tone: "active" };
+}
+
+function summarizeRequiredMods(save, modlistId = currentModlistId()) {
+  const mods = requiredMods(save);
+  const activeIds = activeModSet(modlistId);
+  const knownMods = modsMap();
+  const summary = { total: mods.length, active: 0, inactive: 0, missing: 0 };
+  mods.forEach((mod) => {
+    const status = modStatus(mod, activeIds, knownMods);
+    summary[status.tone] += 1;
+  });
+  return summary;
+}
+
+function populateModlistSelect(select, selectedId) {
+  select.replaceChildren();
+  const lists = modlists();
+  if (!lists.length) {
+    const option = document.createElement("option");
+    option.value = "";
+    option.textContent = "No Teardown modlists found";
+    select.append(option);
+    select.disabled = true;
+    return;
+  }
+
+  select.disabled = false;
+  const currentId = state.modInventory?.selectedModlistId || "";
+  lists.forEach((list) => {
+    const option = document.createElement("option");
+    option.value = list.id;
+    option.textContent = `${list.name} (${list.mods.length})${list.id === currentId ? " - current in Teardown" : ""}`;
+    select.append(option);
+  });
+  select.value = lists.some((list) => list.id === selectedId) ? selectedId : lists[0].id;
 }
 
 function backupResultText(result, skippedText) {
@@ -240,6 +309,12 @@ function selectedSave() {
   return state.saves.find((save) => save.id === state.selectedId) || null;
 }
 
+function setActiveTopTab(buttonId) {
+  elements.topTabs.forEach((button) => {
+    button.classList.toggle("active", button.id === buttonId);
+  });
+}
+
 function filteredSaves() {
   const query = state.query.trim().toLowerCase();
   return state.saves.filter((save) => {
@@ -269,12 +344,16 @@ function renderFilters() {
   });
 }
 
+function renderModControls() {
+  populateModlistSelect(elements.createModlistInput, state.modInventory?.selectedModlistId || "");
+}
+
 function renderCompatibility(container, compatibility) {
   container.className = `compatibility ${compatibility.tone}`;
   container.innerHTML = "";
 
   const badge = document.createElement("span");
-  badge.className = "compatibility-icon";
+  badge.className = compatibility.symbol === "check" ? "icon icon-circle-check compatibility-icon" : "compatibility-icon";
   badge.textContent = compatibility.symbol === "check" ? "" : compatibility.symbol === "question" ? "?" : "";
   container.append(badge, document.createTextNode("Compatibility: "));
 
@@ -298,9 +377,61 @@ function renderLegacyMeta(container, save) {
   container.append(tag, size);
 }
 
-function renderList() {
+function renderRequiredMods(save) {
+  const selectedModlistId = currentModlistId();
+  populateModlistSelect(elements.modlistSelect, selectedModlistId);
+  const captured = save.requiredMods;
+  const mods = requiredMods(save);
+  elements.requiredModsList.replaceChildren();
+
+  if (!captured || !mods.length) {
+    elements.detailModsSummary.textContent = "Not captured";
+    elements.modsSource.textContent = "No mod snapshot captured.";
+    const empty = document.createElement("div");
+    empty.className = "mod-row";
+    empty.textContent = "Capture a Teardown modlist to attach required mods to this save.";
+    elements.requiredModsList.append(empty);
+    return;
+  }
+
+  const summary = summarizeRequiredMods(save, elements.modlistSelect.value);
+  const sourceName = captured.source?.name || "Unknown modlist";
+  const capturedAt = captured.capturedAt ? formatDate(captured.capturedAt) : "unknown time";
+  elements.detailModsSummary.textContent = `${summary.active}/${summary.total} active`;
+  elements.modsSource.textContent = `Captured from ${sourceName} on ${capturedAt}`;
+
+  const activeIds = activeModSet(elements.modlistSelect.value);
+  const knownMods = modsMap();
+  mods.forEach((mod) => {
+    const current = knownMods.get(mod.id) || mod;
+    const status = modStatus(mod, activeIds, knownMods);
+    const row = document.createElement("div");
+    row.className = "mod-row";
+
+    const main = document.createElement("div");
+    main.className = "mod-main";
+    const label = document.createElement(current.link ? "a" : "span");
+    label.textContent = current.name || mod.name || mod.id;
+    if (current.link) {
+      label.href = current.link;
+      label.target = "_blank";
+      label.rel = "noreferrer";
+    }
+    const meta = document.createElement("div");
+    meta.className = "mod-meta";
+    meta.textContent = `${current.kind || mod.kind || "mod"} - ${mod.id}`;
+    main.append(label, meta);
+
+    const badge = document.createElement("span");
+    badge.className = `mod-status ${status.tone}`;
+    badge.textContent = status.label;
+    row.append(main, badge);
+    elements.requiredModsList.append(row);
+  });
+}
+
+function renderList(saves = filteredSaves()) {
   elements.saveList.replaceChildren();
-  const saves = filteredSaves();
 
   if (!saves.length) {
     const empty = document.createElement("div");
@@ -322,6 +453,7 @@ function renderList() {
     const thumbnail = document.createElement("span");
     thumbnail.className = `scenario-thumb ${sceneClass(save)}`;
     thumbnail.setAttribute("aria-hidden", "true");
+    thumbnail.style.backgroundImage = previewStyle(save);
 
     const copy = document.createElement("span");
     copy.className = "scenario-copy";
@@ -347,14 +479,15 @@ function renderList() {
     utilityButtons.className = "utility-buttons";
 
     const star = document.createElement("button");
-    star.className = "row-icon-button";
+    star.className = `row-icon-button favorite-button${save.favorite ? " active" : ""}`;
     star.type = "button";
-    star.title = "Favorite";
-    star.setAttribute("aria-label", `Favorite ${save.name}`);
+    star.title = save.favorite ? "Remove favorite" : "Favorite";
+    star.setAttribute("aria-label", `${save.favorite ? "Remove favorite from" : "Favorite"} ${save.name}`);
+    star.setAttribute("aria-pressed", save.favorite ? "true" : "false");
     star.innerHTML = iconStar;
     star.addEventListener("click", (event) => {
       event.stopPropagation();
-      showToast("Favorites are visual only in this view.");
+      toggleFavorite(save).catch((error) => showToast(error.message));
     });
 
     const menu = document.createElement("button");
@@ -394,47 +527,63 @@ function renderList() {
   });
 }
 
-function renderDetail() {
-  const save = selectedSave();
+function renderDetail(visibleSaves = filteredSaves()) {
+  const selected = selectedSave();
+  const save = selected && visibleSaves.some((item) => item.id === selected.id) ? selected : null;
+  const emptyLabel = elements.emptyDetail.querySelector("span") || elements.emptyDetail;
+  emptyLabel.textContent = selected && !save ? "Selected scenario is hidden by the current filter" : "No scenario selected";
   elements.emptyDetail.classList.toggle("hidden", Boolean(save));
   elements.detailContent.classList.toggle("hidden", !save);
   $("#activateButton").disabled = !save;
   $("#updateButton").disabled = !save;
   $("#deleteButton").disabled = !save;
   $("#copyPathButton").disabled = !save;
+  elements.captureModsButton.disabled = !save;
+  elements.compareModsButton.disabled = !save;
+  elements.copyModLinksButton.disabled = !save;
+  elements.uploadPreviewButton.disabled = !save;
 
   if (!save) return;
 
   const compatibility = compatibilityForSave(save);
   elements.detailHero.className = `scenario-hero ${sceneClass(save)}`;
+  elements.detailHero.style.backgroundImage = previewStyle(save);
   elements.detailName.textContent = detailTitle(save);
   elements.detailCreated.textContent = formatShortDate(save.createdAt);
   elements.detailMap.textContent = mapName(save);
   elements.detailMapType.textContent = mapTypeLabel(save.mapType);
   elements.detailSize.textContent = formatBytes(save.size);
   elements.detailVersion.textContent = save.teardownVersion || "None";
-  elements.detailCompatibility.innerHTML = `<span class="status-dot ${compatibility.tone}"></span>${compatibility.label}`;
+  const detailIcon = compatibility.symbol === "check"
+    ? `<span class="icon icon-circle-check status-icon ${compatibility.tone}" aria-hidden="true"></span>`
+    : `<span class="status-dot ${compatibility.tone}" aria-hidden="true"></span>`;
+  elements.detailCompatibility.innerHTML = `${detailIcon}${compatibility.label}`;
   elements.detailNotes.textContent = save.notes || "No notes.";
   elements.detailInstruction.textContent = loadInstruction(save);
   elements.activatedPill.classList.toggle("hidden", !save.activatedAt);
+  renderRequiredMods(save);
 }
 
 function render() {
+  const saves = filteredSaves();
   renderStatus();
   renderFilters();
-  renderList();
-  renderDetail();
+  renderModControls();
+  renderList(saves);
+  renderDetail(saves);
 }
 
 async function refresh() {
-  const [status, saves, settings] = await Promise.all([
+  const [status, saves, settings, mods] = await Promise.all([
     api("/api/status"),
     api("/api/saves"),
-    api("/api/settings")
+    api("/api/settings"),
+    api("/api/mods")
   ]);
   state.status = status;
   state.saves = saves.saves;
   state.settings = settings;
+  state.modInventory = mods;
   if (state.selectedId && !state.saves.some((save) => save.id === state.selectedId)) {
     state.selectedId = null;
   }
@@ -451,9 +600,10 @@ async function createSave() {
   const teardownVersion = elements.createTeardownVersion.value.trim();
   const requiredMapHint = elements.createRequiredMapHint.value.trim();
   const notes = elements.createNotes.value.trim();
+  const modlistId = elements.createModlistInput.value;
   const result = await api("/api/saves", {
     method: "POST",
-    body: JSON.stringify({ name, mapName: mapNameValue, mapType, teardownVersion, requiredMapHint, notes })
+    body: JSON.stringify({ name, mapName: mapNameValue, mapType, teardownVersion, requiredMapHint, notes, modlistId })
   });
   state.selectedId = result.id;
   elements.createName.value = "";
@@ -463,7 +613,7 @@ async function createSave() {
   elements.createRequiredMapHint.value = "";
   elements.createNotes.value = "";
   await refresh();
-  showToast("Current quicksave stored.");
+  showToast(result.requiredModsWarning ? `Current quicksave stored. Mods not captured: ${result.requiredModsWarning}` : "Current quicksave stored.");
 }
 
 async function updateSelected() {
@@ -484,6 +634,25 @@ async function updateSelected() {
   showToast("Save details updated.");
 }
 
+async function toggleFavorite(save) {
+  const result = await api(`/api/saves/${encodeURIComponent(save.id)}/favorite`, {
+    method: "POST",
+    body: JSON.stringify({ favorite: !save.favorite })
+  });
+  save.favorite = result.favorite;
+  await refresh();
+  showToast(result.favorite ? "Scenario added to favorites." : "Scenario removed from favorites.");
+}
+
+async function openSelectedFolder() {
+  const save = selectedSave();
+  if (!save) return;
+  const result = await api(`/api/saves/${encodeURIComponent(save.id)}/reveal`, {
+    method: "POST"
+  });
+  showToast(`Opened ${result.opened}`);
+}
+
 function openEditDialog() {
   const save = selectedSave();
   if (!save) return;
@@ -495,6 +664,118 @@ function openEditDialog() {
   elements.notesInput.value = save.notes || "";
   elements.editDialog.showModal();
   elements.nameInput.focus();
+}
+
+async function captureSelectedMods() {
+  const save = selectedSave();
+  if (!save) return;
+  const modlistId = currentModlistId();
+  const modlist = modlists().find((item) => item.id === modlistId);
+  const confirmed = window.confirm([
+    `Capture required mods for "${save.name}"?`,
+    "",
+    `Source modlist: ${modlist ? modlist.name : "latest Teardown modlist"}`,
+    "This only stores a snapshot in the manager. It will not edit Teardown's mod files."
+  ].join("\n"));
+  if (!confirmed) return;
+
+  await api(`/api/saves/${encodeURIComponent(save.id)}/mods`, {
+    method: "POST",
+    body: JSON.stringify({ modlistId })
+  });
+  await refresh();
+  showToast("Required mods captured.");
+}
+
+function requiredModLines(save) {
+  const activeIds = activeModSet();
+  const knownMods = modsMap();
+  return requiredMods(save).map((mod) => {
+    const current = knownMods.get(mod.id) || mod;
+    const status = modStatus(mod, activeIds, knownMods);
+    const link = current.link ? `\n  ${current.link}` : "";
+    return `${status.label}: ${current.name || mod.name || mod.id} (${mod.id})${link}`;
+  });
+}
+
+function compareSelectedMods() {
+  const save = selectedSave();
+  if (!save) return;
+  if (!requiredMods(save).length) {
+    showToast("No required mods have been captured for this save.");
+    return;
+  }
+
+  const summary = summarizeRequiredMods(save);
+  const list = requiredModLines(save).join("\n");
+  showInfo("Required Mods Compare", [
+    `${summary.active}/${summary.total} active`,
+    `${summary.inactive} installed but inactive`,
+    `${summary.missing} missing`,
+    "",
+    list
+  ].join("\n"), { showPathActions: false });
+}
+
+async function copyRequiredModLinks() {
+  const save = selectedSave();
+  if (!save) return;
+  const mods = requiredMods(save);
+  if (!mods.length) {
+    showToast("No required mods have been captured for this save.");
+    return;
+  }
+
+  const knownMods = modsMap();
+  const lines = mods.map((mod) => {
+    const current = knownMods.get(mod.id) || mod;
+    if (current.link) return `${current.name || mod.name || mod.id} - ${current.link}`;
+    return `${current.name || mod.name || mod.id} - ${mod.id}`;
+  });
+  await navigator.clipboard.writeText(lines.join("\n"));
+  showToast("Required mod links copied.");
+}
+
+async function uploadPreviewFromPath(sourcePath) {
+  const save = selectedSave();
+  if (!save || !sourcePath) return;
+  await api(`/api/saves/${encodeURIComponent(save.id)}/preview-path`, {
+    method: "POST",
+    body: JSON.stringify({ sourcePath })
+  });
+  await refresh();
+  showToast("Preview updated.");
+}
+
+async function uploadPreviewFromFile(file) {
+  const save = selectedSave();
+  if (!save || !file) return;
+  const dataUrl = await new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.addEventListener("load", () => resolve(reader.result));
+    reader.addEventListener("error", () => reject(reader.error || new Error("Preview file could not be read.")));
+    reader.readAsDataURL(file);
+  });
+  await api(`/api/saves/${encodeURIComponent(save.id)}/preview-data`, {
+    method: "POST",
+    body: JSON.stringify({ name: file.name, dataUrl })
+  });
+  await refresh();
+  showToast("Preview updated.");
+}
+
+async function choosePreview() {
+  const save = selectedSave();
+  if (!save) return;
+  const picker = window.teardownPreview;
+  if (picker?.pick) {
+    const sourcePath = await picker.pick(state.status?.screenshotsDir || "");
+    if (sourcePath) await uploadPreviewFromPath(sourcePath);
+    return;
+  }
+
+  elements.previewFileInput.value = "";
+  elements.previewFileInput.click();
 }
 
 async function loadSelected(save = selectedSave()) {
@@ -543,7 +824,13 @@ function openSettingsDialog() {
   elements.loadBackupEveryInput.value = settings.loadBackupEvery;
   elements.backupBeforeUpdateInput.value = settings.backupBeforeUpdate;
   elements.updateBackupEveryInput.value = settings.updateBackupEvery;
+  updateSettingsFrequencyState();
   elements.settingsDialog.showModal();
+}
+
+function updateSettingsFrequencyState() {
+  elements.loadBackupEveryInput.disabled = elements.backupBeforeLoadInput.value !== "every_n";
+  elements.updateBackupEveryInput.disabled = elements.backupBeforeUpdateInput.value !== "every_n";
 }
 
 async function launchTeardown() {
@@ -592,10 +879,13 @@ function setupWindowControls() {
 }
 
 $("#refreshButton").addEventListener("click", () => {
+  setActiveTopTab("refreshButton");
   state.filter = "all";
   state.query = "";
   if (elements.searchInput) elements.searchInput.value = "";
-  refresh().catch((error) => showToast(error.message));
+  refresh()
+    .then(() => showToast("Library refreshed."))
+    .catch((error) => showToast(error.message));
 });
 
 elements.searchInput.addEventListener("input", (event) => {
@@ -634,6 +924,7 @@ $("#confirmUpdateButton").addEventListener("click", (event) => {
 });
 
 $("#settingsButton").addEventListener("click", () => {
+  setActiveTopTab("settingsButton");
   openSettingsDialog();
 });
 
@@ -644,21 +935,41 @@ $("#confirmSettingsButton").addEventListener("click", (event) => {
     .catch((error) => showToast(error.message));
 });
 
+elements.backupBeforeLoadInput.addEventListener("change", updateSettingsFrequencyState);
+elements.backupBeforeUpdateInput.addEventListener("change", updateSettingsFrequencyState);
+elements.modlistSelect.addEventListener("change", () => renderDetail());
+
 $("#activateButton").addEventListener("click", () => {
   loadSelected().catch((error) => showToast(error.message));
+});
+
+elements.captureModsButton.addEventListener("click", () => {
+  captureSelectedMods().catch((error) => showToast(error.message));
+});
+
+elements.compareModsButton.addEventListener("click", () => {
+  compareSelectedMods();
+});
+
+elements.copyModLinksButton.addEventListener("click", () => {
+  copyRequiredModLinks().catch((error) => showToast(error.message));
+});
+
+elements.uploadPreviewButton.addEventListener("click", () => {
+  choosePreview().catch((error) => showToast(error.message));
+});
+
+elements.previewFileInput.addEventListener("change", () => {
+  const file = elements.previewFileInput.files?.[0];
+  uploadPreviewFromFile(file).catch((error) => showToast(error.message));
 });
 
 $("#backupButton").addEventListener("click", () => {
   openManagedPath("backups").catch((error) => showToast(error.message));
 });
 
-$("#openTeardownButton").addEventListener("click", () => {
-  launchTeardown().catch((error) => showToast(error.message));
-});
-
 $("#copyPathButton").addEventListener("click", () => {
-  const save = selectedSave();
-  copyText(save ? save.quicksavePath : "", "Selected quicksave path copied.").catch((error) => showToast(error.message));
+  openSelectedFolder().catch((error) => showToast(error.message));
 });
 
 $("#deleteButton").addEventListener("click", () => {
@@ -666,6 +977,7 @@ $("#deleteButton").addEventListener("click", () => {
 });
 
 $("#revealButton").addEventListener("click", () => {
+  setActiveTopTab("revealButton");
   openManagedPath("backups").catch((error) => showToast(error.message));
 });
 

@@ -5,3 +5,7 @@ contextBridge.exposeInMainWorld("teardownWindow", {
   toggleMaximize: () => ipcRenderer.send("window:toggle-maximize"),
   close: () => ipcRenderer.send("window:close")
 });
+
+contextBridge.exposeInMainWorld("teardownPreview", {
+  pick: (defaultPath) => ipcRenderer.invoke("preview:pick", defaultPath)
+});

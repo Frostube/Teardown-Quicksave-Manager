@@ -15,6 +15,11 @@ const documentsDir = process.env.USERPROFILE
   : path.join(os.homedir(), "Documents");
 
 const activeSavePath = process.env.TEARDOWN_QUICKSAVE_PATH || path.join(localAppData, "Teardown", "quicksave.bin");
+const teardownDataDir = path.join(localAppData, "Teardown");
+const teardownModsDir = path.join(documentsDir, "Teardown", "mods");
+const teardownScreenshotsDir = path.join(documentsDir, "Teardown", "screenshots");
+const teardownModsRegistryPath = path.join(teardownDataDir, "mods.xml");
+const teardownModlistsDir = path.join(teardownDataDir, "modlists");
 const managerRoot = process.env.TEARDOWN_QSM_ROOT || path.join(documentsDir, "Teardown", "Quicksave Manager");
 const savesDir = path.join(managerRoot, "saves");
 const backupsDir = path.join(managerRoot, "backups");
@@ -35,8 +40,13 @@ const contentTypes = {
   ".js": "application/javascript; charset=utf-8",
   ".json": "application/json; charset=utf-8",
   ".svg": "image/svg+xml",
-  ".png": "image/png"
+  ".png": "image/png",
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".webp": "image/webp"
 };
+
+const previewExtensions = new Set([".png", ".jpg", ".jpeg", ".webp"]);
 
 function json(res, status, body) {
   const payload = JSON.stringify(body, null, 2);
@@ -57,6 +67,64 @@ function safeId(value) {
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "")
     .slice(0, 64);
+}
+
+function looseId(value) {
+  return String(value || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "-")
+    .slice(0, 96);
+}
+
+function parseXmlAttributes(raw) {
+  const attributes = {};
+  String(raw || "").replace(/([a-zA-Z0-9_-]+)="([^"]*)"/g, (_, key, value) => {
+    attributes[key] = value;
+    return "";
+  });
+  return attributes;
+}
+
+function parseInfoText(content) {
+  const info = {};
+  String(content || "").split(/\r?\n/).forEach((line) => {
+    const match = line.match(/^\s*([a-zA-Z0-9_-]+)\s*=\s*(.*?)\s*$/);
+    if (match) info[match[1]] = match[2];
+  });
+  return info;
+}
+
+function modNameFromInfo(info, fallback) {
+  return info.en_name || info.name || info.title || fallback;
+}
+
+function modNameFromId(id) {
+  return String(id || "")
+    .replace(/^steam-/, "Workshop ")
+    .replace(/^local-/, "")
+    .replace(/^builtin-/, "Built-in ")
+    .replace(/-/g, " ")
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+function workshopIdFromModId(id) {
+  const match = String(id || "").match(/^steam-(\d+)$/);
+  return match ? match[1] : "";
+}
+
+function workshopUrl(id) {
+  const workshopId = workshopIdFromModId(id);
+  return workshopId ? `https://steamcommunity.com/sharedfiles/filedetails/?id=${workshopId}` : "";
+}
+
+function previewUrl(id, version = Date.now()) {
+  return `/api/saves/${encodeURIComponent(id)}/preview?v=${version}`;
+}
+
+function previewExtension(filePath) {
+  const ext = path.extname(String(filePath || "")).toLowerCase();
+  if (previewExtensions.has(ext)) return ext === ".jpeg" ? ".jpg" : ext;
+  return "";
 }
 
 function timestamp(date = new Date()) {
@@ -153,7 +221,8 @@ function metadataFromBody(body, fallback = {}) {
     mapType: String(body.mapType || fallback.mapType || "unknown").trim(),
     requiredMapHint: String(body.requiredMapHint || fallback.requiredMapHint || "").trim(),
     teardownVersion: String(body.teardownVersion || fallback.teardownVersion || "").trim(),
-    thumbnail: String(body.thumbnail || fallback.thumbnail || "").trim()
+    thumbnail: String(body.thumbnail || fallback.thumbnail || "").trim(),
+    favorite: typeof body.favorite === "boolean" ? body.favorite : Boolean(fallback.favorite)
   };
 }
 
@@ -188,18 +257,403 @@ async function uniqueSaveId(name) {
 async function getStatus() {
   await ensureDirs();
   const active = await statOrNull(activeSavePath);
+  const screenshotsDir = await findScreenshotDir();
   return {
     activeSavePath,
     managerRoot,
     savesDir,
     backupsDir,
     deletedDir,
+    screenshotsDir,
     hasActiveQuicksave: Boolean(active),
     activeQuicksave: active ? {
       size: active.size,
       modifiedAt: active.mtime.toISOString()
     } : null
   };
+}
+
+async function readTeardownModRegistry() {
+  try {
+    const raw = await fs.readFile(teardownModsRegistryPath, "utf8");
+    const mods = [];
+    raw.replace(/<mod\s+([^>]*?)\/>/g, (_, attributesRaw) => {
+      const attributes = parseXmlAttributes(attributesRaw);
+      if (attributes.id) mods.push(attributes);
+      return "";
+    });
+    return mods;
+  } catch (error) {
+    if (error.code === "ENOENT") return [];
+    throw error;
+  }
+}
+
+async function readLocalMods() {
+  const mods = new Map();
+  let entries = [];
+  try {
+    entries = await fs.readdir(teardownModsDir, { withFileTypes: true });
+  } catch (error) {
+    if (error.code === "ENOENT") return mods;
+    throw error;
+  }
+
+  for (const entry of entries) {
+    if (!entry.isDirectory()) continue;
+    const modDir = path.join(teardownModsDir, entry.name);
+    const infoPath = path.join(modDir, "info.txt");
+    const info = parseInfoText(await fs.readFile(infoPath, "utf8").catch(() => ""));
+    const name = modNameFromInfo(info, entry.name);
+    const mod = {
+      id: `local-${safeId(entry.name)}`,
+      aliases: Array.from(new Set([
+        `local-${safeId(entry.name)}`,
+        `local-${looseId(entry.name)}`
+      ])),
+      kind: "local",
+      name,
+      author: info.author || "",
+      tags: info.tags || "",
+      path: modDir,
+      link: "",
+      installed: true
+    };
+    mod.aliases.forEach((id) => mods.set(id, { ...mod, id }));
+  }
+  return mods;
+}
+
+async function steamAppsDirs() {
+  const candidates = [
+    path.join("C:", "Program Files (x86)", "Steam", "steamapps"),
+    path.join("C:", "Program Files", "Steam", "steamapps")
+  ];
+
+  if (process.platform === "win32") {
+    for (let code = 67; code <= 90; code += 1) {
+      candidates.push(path.join(`${String.fromCharCode(code)}:`, "SteamLibrary", "steamapps"));
+    }
+  }
+
+  const dirs = [];
+  for (const candidate of candidates) {
+    if (await statOrNull(candidate)) dirs.push(candidate);
+  }
+  return Array.from(new Set(dirs));
+}
+
+async function steamRootDirs() {
+  const roots = new Set();
+  const candidates = [
+    path.join("C:", "Program Files (x86)", "Steam"),
+    path.join("C:", "Program Files", "Steam")
+  ];
+  if (process.platform === "win32") {
+    for (let code = 67; code <= 90; code += 1) {
+      candidates.push(path.join(`${String.fromCharCode(code)}:`, "Steam"));
+      candidates.push(path.join(`${String.fromCharCode(code)}:`, "SteamLibrary"));
+    }
+  }
+  for (const steamAppsDir of await steamAppsDirs()) {
+    candidates.push(path.dirname(steamAppsDir));
+  }
+  for (const candidate of candidates) {
+    if (await statOrNull(candidate)) roots.add(candidate);
+  }
+  return Array.from(roots);
+}
+
+async function findScreenshotDir() {
+  for (const root of await steamRootDirs()) {
+    const userdata = path.join(root, "userdata");
+    let users = [];
+    try {
+      users = await fs.readdir(userdata, { withFileTypes: true });
+    } catch (error) {
+      if (error.code === "ENOENT") continue;
+      throw error;
+    }
+
+    for (const user of users) {
+      if (!user.isDirectory()) continue;
+      const screenshotDir = path.join(userdata, user.name, "760", "remote", "1167630", "screenshots");
+      if (await statOrNull(screenshotDir)) return screenshotDir;
+    }
+  }
+
+  if (await statOrNull(teardownScreenshotsDir)) return teardownScreenshotsDir;
+  return teardownScreenshotsDir;
+}
+
+async function readWorkshopMods() {
+  const mods = new Map();
+  const dirs = await steamAppsDirs();
+  for (const steamAppsDir of dirs) {
+    const contentDir = path.join(steamAppsDir, "workshop", "content", "1167630");
+    let entries = [];
+    try {
+      entries = await fs.readdir(contentDir, { withFileTypes: true });
+    } catch (error) {
+      if (error.code === "ENOENT") continue;
+      throw error;
+    }
+
+    for (const entry of entries) {
+      if (!entry.isDirectory() || !/^\d+$/.test(entry.name)) continue;
+      const modDir = path.join(contentDir, entry.name);
+      const info = parseInfoText(await fs.readFile(path.join(modDir, "info.txt"), "utf8").catch(() => ""));
+      const id = `steam-${entry.name}`;
+      mods.set(id, {
+        id,
+        kind: "steam",
+        name: modNameFromInfo(info, `Workshop ${entry.name}`),
+        author: info.author || "",
+        tags: info.tags || "",
+        path: modDir,
+        link: workshopUrl(id),
+        installed: true
+      });
+    }
+  }
+  return mods;
+}
+
+async function readModlists() {
+  let indexNames = new Map();
+  try {
+    const rawIndex = await fs.readFile(path.join(teardownModlistsDir, "index.xml"), "utf8");
+    rawIndex.replace(/<modlist\s+([^>]*?)>\s*<name>([^<]*)<\/name>/g, (_, attributesRaw, name) => {
+      const attributes = parseXmlAttributes(attributesRaw);
+      if (attributes.id) indexNames.set(attributes.id, name);
+      return "";
+    });
+  } catch (error) {
+    if (error.code !== "ENOENT") throw error;
+  }
+
+  let entries = [];
+  try {
+    entries = await fs.readdir(teardownModlistsDir, { withFileTypes: true });
+  } catch (error) {
+    if (error.code === "ENOENT") return [];
+    throw error;
+  }
+
+  const modlists = [];
+  for (const entry of entries) {
+    if (!entry.isFile() || !/^\d+\.xml$/i.test(entry.name)) continue;
+    const id = entry.name.replace(/\.xml$/i, "");
+    const filePath = path.join(teardownModlistsDir, entry.name);
+    const [raw, stat] = await Promise.all([
+      fs.readFile(filePath, "utf8"),
+      fs.stat(filePath)
+    ]);
+    const name = raw.match(/<name>([^<]*)<\/name>/)?.[1] || indexNames.get(id) || `Modlist ${id}`;
+    const mods = [];
+    raw.replace(/<mod\s+([^>]*?)\/>/g, (_, attributesRaw) => {
+      const attributes = parseXmlAttributes(attributesRaw);
+      if (attributes.id) mods.push(attributes.id);
+      return "";
+    });
+    modlists.push({
+      id,
+      name,
+      path: filePath,
+      updatedAt: stat.mtime.toISOString(),
+      mods
+    });
+  }
+
+  modlists.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
+  return modlists;
+}
+
+async function readSelectedModlistId() {
+  try {
+    const raw = await fs.readFile(path.join(teardownDataDir, "options.xml"), "utf8");
+    return raw.match(/<mods>[\s\S]*?<playmode\s+value="([^"]+)"/)?.[1] || "";
+  } catch (error) {
+    if (error.code === "ENOENT") return "";
+    throw error;
+  }
+}
+
+async function getModInventory() {
+  const [registry, localMods, workshopMods, modlists, selectedId] = await Promise.all([
+    readTeardownModRegistry(),
+    readLocalMods(),
+    readWorkshopMods(),
+    readModlists(),
+    readSelectedModlistId()
+  ]);
+
+  const mods = new Map([...localMods, ...workshopMods]);
+  registry.forEach((mod) => {
+    if (mods.has(mod.id)) return;
+    const link = workshopUrl(mod.id);
+    mods.set(mod.id, {
+      id: mod.id,
+      kind: mod.id.startsWith("steam-") ? "steam" : mod.id.startsWith("builtin-") ? "builtin" : "local",
+      name: modNameFromId(mod.id),
+      author: "",
+      tags: "",
+      path: "",
+      link,
+      installed: true
+    });
+  });
+
+  const selectedModlistId = modlists.some((modlist) => modlist.id === selectedId)
+    ? selectedId
+    : modlists[0]?.id || "";
+
+  return {
+    dataDir: teardownDataDir,
+    localModsDir: teardownModsDir,
+    registryPath: teardownModsRegistryPath,
+    modlistsDir: teardownModlistsDir,
+    selectedModlistId,
+    modlists,
+    mods: Array.from(mods.values()).sort((a, b) => a.name.localeCompare(b.name))
+  };
+}
+
+function modsById(inventory) {
+  return new Map(inventory.mods.map((mod) => [mod.id, mod]));
+}
+
+async function captureRequiredMods(id, modlistId = "") {
+  const saveDir = resolveSaveDir(id);
+  const metadataPath = path.join(saveDir, "metadata.json");
+  const metadata = await readJsonOrNull(metadataPath);
+  if (!metadata) {
+    const error = new Error("Save not found.");
+    error.status = 404;
+    throw error;
+  }
+
+  const inventory = await getModInventory();
+  const source = inventory.modlists.find((modlist) => modlist.id === String(modlistId || "")) || inventory.modlists[0];
+  if (!source) {
+    const error = new Error("No Teardown modlists were found.");
+    error.status = 409;
+    throw error;
+  }
+
+  const knownMods = modsById(inventory);
+  metadata.requiredMods = {
+    capturedAt: new Date().toISOString(),
+    source: {
+      id: source.id,
+      name: source.name,
+      path: source.path,
+      updatedAt: source.updatedAt
+    },
+    mods: source.mods.map((modId) => {
+      const known = knownMods.get(modId);
+      return known || {
+        id: modId,
+        kind: modId.startsWith("steam-") ? "steam" : modId.startsWith("builtin-") ? "builtin" : "local",
+        name: modNameFromId(modId),
+        author: "",
+        tags: "",
+        path: "",
+        link: workshopUrl(modId),
+        installed: false
+      };
+    })
+  };
+  metadata.updatedAt = new Date().toISOString();
+  await writeJson(metadataPath, metadata);
+  return { id, requiredMods: metadata.requiredMods };
+}
+
+async function removeExistingPreviews(saveDir) {
+  for (const ext of previewExtensions) {
+    await fs.unlink(path.join(saveDir, `preview${ext === ".jpeg" ? ".jpg" : ext}`)).catch((error) => {
+      if (error.code !== "ENOENT") throw error;
+    });
+  }
+}
+
+async function setSavePreviewFromBuffer(id, buffer, ext) {
+  const saveDir = resolveSaveDir(id);
+  const metadataPath = path.join(saveDir, "metadata.json");
+  const metadata = await readJsonOrNull(metadataPath);
+  if (!metadata) {
+    const error = new Error("Save not found.");
+    error.status = 404;
+    throw error;
+  }
+  if (!previewExtensions.has(ext)) {
+    const error = new Error("Preview must be a PNG, JPG, or WEBP image.");
+    error.status = 400;
+    throw error;
+  }
+
+  await removeExistingPreviews(saveDir);
+  const previewPath = path.join(saveDir, `preview${ext}`);
+  await fs.writeFile(previewPath, buffer);
+  metadata.thumbnail = previewUrl(id);
+  metadata.previewFile = path.basename(previewPath);
+  metadata.previewUpdatedAt = new Date().toISOString();
+  metadata.updatedAt = metadata.previewUpdatedAt;
+  await writeJson(metadataPath, metadata);
+  return { id, thumbnail: metadata.thumbnail };
+}
+
+async function setSavePreviewFromPath(id, sourcePath) {
+  const source = String(sourcePath || "");
+  const ext = previewExtension(source);
+  if (!ext) {
+    const error = new Error("Preview must be a PNG, JPG, or WEBP image.");
+    error.status = 400;
+    throw error;
+  }
+  const stat = await statOrNull(source);
+  if (!stat || !stat.isFile()) {
+    const error = new Error("Selected preview image was not found.");
+    error.status = 404;
+    throw error;
+  }
+  const buffer = await fs.readFile(source);
+  return setSavePreviewFromBuffer(id, buffer, ext);
+}
+
+async function setSavePreviewFromData(id, body) {
+  const dataUrl = String(body.dataUrl || "");
+  const match = dataUrl.match(/^data:image\/(png|jpe?g|webp);base64,(.+)$/i);
+  if (!match) {
+    const error = new Error("Preview upload must be a PNG, JPG, or WEBP image.");
+    error.status = 400;
+    throw error;
+  }
+  const ext = match[1].toLowerCase().startsWith("jp") ? ".jpg" : `.${match[1].toLowerCase()}`;
+  return setSavePreviewFromBuffer(id, Buffer.from(match[2], "base64"), ext);
+}
+
+async function serveSavePreview(id, res) {
+  const saveDir = resolveSaveDir(id);
+  const metadata = await readJsonOrNull(path.join(saveDir, "metadata.json")) || {};
+  const previewFile = metadata.previewFile || "";
+  const ext = previewExtension(previewFile);
+  if (!previewFile || !ext) return notFound(res);
+  const filePath = path.resolve(saveDir, previewFile);
+  if (!filePath.startsWith(path.resolve(saveDir) + path.sep)) return notFound(res);
+
+  try {
+    const content = await fs.readFile(filePath);
+    res.writeHead(200, {
+      "Content-Type": contentTypes[ext] || "application/octet-stream",
+      "Content-Length": content.length,
+      "Cache-Control": "no-cache"
+    });
+    res.end(content);
+  } catch (error) {
+    if (error.code === "ENOENT") return notFound(res);
+    json(res, 500, { error: error.message });
+  }
 }
 
 async function listSaves() {
@@ -227,11 +681,14 @@ async function listSaves() {
       requiredMapHint: metadata.requiredMapHint || "",
       teardownVersion: metadata.teardownVersion || "",
       thumbnail: metadata.thumbnail || "",
+      hasCustomPreview: Boolean(metadata.thumbnail),
+      favorite: Boolean(metadata.favorite),
       loadOperationsSinceBackup: operationCount(metadata.loadOperationsSinceBackup),
       updateOperationsSinceBackup: operationCount(metadata.updateOperationsSinceBackup),
       createdAt: metadata.createdAt || quicksave.birthtime.toISOString(),
       updatedAt: metadata.updatedAt || quicksave.mtime.toISOString(),
       activatedAt: metadata.activatedAt || null,
+      requiredMods: metadata.requiredMods || null,
       saveDir,
       quicksavePath,
       size: quicksave.size,
@@ -239,7 +696,7 @@ async function listSaves() {
     });
   }
 
-  saves.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
+  saves.sort((a, b) => Number(b.favorite) - Number(a.favorite) || new Date(b.updatedAt) - new Date(a.updatedAt));
   return saves;
 }
 
@@ -271,13 +728,22 @@ async function createSave(body) {
     requiredMapHint: bodyMetadata.requiredMapHint,
     teardownVersion: bodyMetadata.teardownVersion,
     thumbnail: bodyMetadata.thumbnail,
+    favorite: bodyMetadata.favorite,
     createdAt: now,
     updatedAt: now,
     source: activeSavePath,
     size: active.size
   });
 
-  return { id };
+  let requiredMods = null;
+  let requiredModsWarning = "";
+  try {
+    requiredMods = (await captureRequiredMods(id, body.modlistId)).requiredMods;
+  } catch (error) {
+    requiredModsWarning = error.message;
+  }
+
+  return { id, requiredMods, requiredModsWarning };
 }
 
 async function updateSave(id, body) {
@@ -300,9 +766,25 @@ async function updateSave(id, body) {
   metadata.requiredMapHint = bodyMetadata.requiredMapHint;
   metadata.teardownVersion = bodyMetadata.teardownVersion;
   metadata.thumbnail = bodyMetadata.thumbnail;
+  metadata.favorite = bodyMetadata.favorite;
   metadata.updatedAt = new Date().toISOString();
   await writeJson(metadataPath, metadata);
   return { id };
+}
+
+async function setFavorite(id, favorite) {
+  const saveDir = resolveSaveDir(id);
+  const metadataPath = path.join(saveDir, "metadata.json");
+  const metadata = await readJsonOrNull(metadataPath);
+  if (!metadata) {
+    const error = new Error("Save not found.");
+    error.status = 404;
+    throw error;
+  }
+
+  metadata.favorite = Boolean(favorite);
+  await writeJson(metadataPath, metadata);
+  return { id, favorite: metadata.favorite };
 }
 
 async function updateSaveFile(id) {
@@ -352,6 +834,14 @@ async function updateSaveFile(id) {
   metadata.size = active.size;
   await writeJson(metadataPath, metadata);
 
+  let requiredMods = null;
+  let requiredModsWarning = "";
+  try {
+    requiredMods = (await captureRequiredMods(id)).requiredMods;
+  } catch (error) {
+    requiredModsWarning = error.message;
+  }
+
   return {
     id,
     backupPath,
@@ -359,7 +849,9 @@ async function updateSaveFile(id) {
     backupPolicy: settings.backupBeforeUpdate,
     operationsSinceBackup: metadata.updateOperationsSinceBackup,
     size: active.size,
-    modifiedAt: active.mtime.toISOString()
+    modifiedAt: active.mtime.toISOString(),
+    requiredMods,
+    requiredModsWarning
   };
 }
 
@@ -496,6 +988,19 @@ async function revealTarget(target) {
   return { opened: targetPath };
 }
 
+async function revealSave(id) {
+  const saveDir = resolveSaveDir(id);
+  const exists = await statOrNull(saveDir);
+  if (!exists) {
+    const error = new Error("Save not found.");
+    error.status = 404;
+    throw error;
+  }
+
+  await openPath(saveDir);
+  return { opened: saveDir };
+}
+
 async function launchTeardown() {
   await openExternal(teardownSteamUrl);
   return { launched: teardownSteamUrl };
@@ -522,6 +1027,10 @@ async function handleApi(req, res, url) {
 
     if (req.method === "GET" && url.pathname === "/api/settings") {
       return json(res, 200, await getSettings());
+    }
+
+    if (req.method === "GET" && url.pathname === "/api/mods") {
+      return json(res, 200, await getModInventory());
     }
 
     if (req.method === "PATCH" && url.pathname === "/api/settings") {
@@ -566,6 +1075,33 @@ async function handleApi(req, res, url) {
 
       if (req.method === "POST" && action === "load") {
         return json(res, 200, await loadSave(id));
+      }
+
+      if (req.method === "POST" && action === "favorite") {
+        const body = await readBody(req);
+        return json(res, 200, await setFavorite(id, body.favorite));
+      }
+
+      if (req.method === "POST" && action === "mods") {
+        const body = await readBody(req);
+        return json(res, 200, await captureRequiredMods(id, body.modlistId));
+      }
+
+      if (req.method === "GET" && action === "preview") {
+        return serveSavePreview(id, res);
+      }
+
+      if (req.method === "POST" && action === "preview-path") {
+        const body = await readBody(req);
+        return json(res, 200, await setSavePreviewFromPath(id, body.sourcePath));
+      }
+
+      if (req.method === "POST" && action === "preview-data") {
+        return json(res, 200, await setSavePreviewFromData(id, await readBody(req)));
+      }
+
+      if (req.method === "POST" && action === "reveal") {
+        return json(res, 200, await revealSave(id));
       }
 
       if (req.method === "DELETE" && !action) {

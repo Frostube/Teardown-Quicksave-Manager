@@ -1,5 +1,5 @@
 const path = require("path");
-const { app, BrowserWindow, ipcMain, shell } = require("electron");
+const { app, BrowserWindow, ipcMain, shell, dialog } = require("electron");
 const { startServer, paths } = require("./server");
 
 let appServer = null;
@@ -21,6 +21,20 @@ ipcMain.on("window:toggle-maximize", (event) => {
 
 ipcMain.on("window:close", (event) => {
   windowFromEvent(event)?.close();
+});
+
+ipcMain.handle("preview:pick", async (event, defaultPath) => {
+  const window = windowFromEvent(event);
+  const result = await dialog.showOpenDialog(window, {
+    title: "Choose Preview Screenshot",
+    defaultPath,
+    properties: ["openFile"],
+    filters: [
+      { name: "Images", extensions: ["png", "jpg", "jpeg", "webp"] }
+    ]
+  });
+  if (result.canceled || !result.filePaths.length) return null;
+  return result.filePaths[0];
 });
 
 async function createWindow() {
