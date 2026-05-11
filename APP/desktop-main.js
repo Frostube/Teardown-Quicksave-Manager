@@ -1,19 +1,41 @@
-const { app, BrowserWindow, shell } = require("electron");
+const path = require("path");
+const { app, BrowserWindow, ipcMain, shell } = require("electron");
 const { startServer, paths } = require("./server");
 
 let appServer = null;
 
+function windowFromEvent(event) {
+  return BrowserWindow.fromWebContents(event.sender);
+}
+
+ipcMain.on("window:minimize", (event) => {
+  windowFromEvent(event)?.minimize();
+});
+
+ipcMain.on("window:toggle-maximize", (event) => {
+  const window = windowFromEvent(event);
+  if (!window) return;
+  if (window.isMaximized()) window.unmaximize();
+  else window.maximize();
+});
+
+ipcMain.on("window:close", (event) => {
+  windowFromEvent(event)?.close();
+});
+
 async function createWindow() {
-  appServer = await startServer();
+  appServer = await startServer({ port: 0 });
 
   const window = new BrowserWindow({
-    width: 1180,
-    height: 780,
-    minWidth: 920,
-    minHeight: 620,
+    width: 1600,
+    height: 900,
+    minWidth: 1120,
+    minHeight: 720,
     title: "Teardown Quicksave Manager",
-    backgroundColor: "#0b0d10",
+    frame: false,
+    backgroundColor: "#050505",
     webPreferences: {
+      preload: path.join(__dirname, "preload.js"),
       nodeIntegration: false,
       contextIsolation: true,
       sandbox: true

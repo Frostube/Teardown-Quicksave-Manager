@@ -3,134 +3,250 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Teardown Quicksave Manager</title>
+    <title>Teardown Scenario Manager</title>
     <link rel="icon" href="data:,">
     <link rel="stylesheet" href="./styles.css">
   </head>
   <body>
     <main class="app-shell">
       <header class="window-bar">
-        <div class="brand">
-          <div class="mark" aria-hidden="true">T</div>
-          <div>
+        <div class="brand" aria-label="Teardown Scenario Manager">
+          <svg class="brand-mark" viewBox="0 0 64 64" aria-hidden="true">
+            <path d="M32 5 56 18.5v27L32 59 8 45.5v-27L32 5Z"></path>
+            <path d="M23 21h18l-9 8 12 14H27l5-7-12-13Z"></path>
+          </svg>
+          <div class="brand-copy">
             <div class="brand-title">TEARDOWN</div>
-            <div class="brand-subtitle">Quicksave Manager</div>
+            <div class="brand-subtitle">SCENARIO MANAGER</div>
           </div>
         </div>
-        <nav class="tool-tabs" aria-label="Primary">
-          <button class="icon-tab active" id="refreshButton" type="button" title="Refresh saves" aria-label="Refresh saves">
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M20 11a8 8 0 0 0-14.6-4.5L4 8"></path>
-              <path d="M4 4v4h4"></path>
-              <path d="M4 13a8 8 0 0 0 14.6 4.5L20 16"></path>
-              <path d="M20 20v-4h-4"></path>
-            </svg>
-          </button>
-          <button class="icon-tab" id="revealButton" type="button" title="Open paths" aria-label="Open paths">
+
+        <nav class="top-tabs" aria-label="Primary">
+          <button class="top-tab active" id="refreshButton" type="button">
             <svg viewBox="0 0 24 24" aria-hidden="true">
               <path d="M3 7h6l2 2h10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"></path>
               <path d="M3 7V5a2 2 0 0 1 2-2h4l2 2h6a2 2 0 0 1 2 2v2"></path>
             </svg>
+            <span>Library</span>
           </button>
-          <button class="icon-tab" id="settingsButton" type="button" title="Settings" aria-label="Settings">
+          <button class="top-tab" id="revealButton" type="button">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M3 12a9 9 0 1 0 3-6.7"></path>
+              <path d="M3 4v5h5"></path>
+              <path d="M12 7v5l4 2"></path>
+            </svg>
+            <span>Backups</span>
+          </button>
+          <button class="top-tab" id="settingsButton" type="button">
             <svg viewBox="0 0 24 24" aria-hidden="true">
               <circle cx="12" cy="12" r="3"></circle>
               <path d="M19.4 15a1.8 1.8 0 0 0 .4 2l.1.1-2.1 2.1-.1-.1a1.8 1.8 0 0 0-2-.4 1.8 1.8 0 0 0-1.1 1.7V21h-3v-.6a1.8 1.8 0 0 0-1.1-1.7 1.8 1.8 0 0 0-2 .4l-.1.1-2.1-2.1.1-.1a1.8 1.8 0 0 0 .4-2 1.8 1.8 0 0 0-1.7-1.1H4v-3h.6a1.8 1.8 0 0 0 1.7-1.1 1.8 1.8 0 0 0-.4-2l-.1-.1 2.1-2.1.1.1a1.8 1.8 0 0 0 2 .4A1.8 1.8 0 0 0 11.1 4V3h3v1a1.8 1.8 0 0 0 1.1 1.7 1.8 1.8 0 0 0 2-.4l.1-.1 2.1 2.1-.1.1a1.8 1.8 0 0 0-.4 2 1.8 1.8 0 0 0 1.7 1.1h.4v3h-.4a1.8 1.8 0 0 0-1.2 1.5Z"></path>
             </svg>
-          </button>
-          <button class="icon-tab" id="helpButton" type="button" title="Help" aria-label="Help">
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <circle cx="12" cy="12" r="9"></circle>
-              <path d="M9.5 9a2.7 2.7 0 0 1 5.1 1.2c0 1.9-2.6 2.2-2.6 4"></path>
-              <path d="M12 18h.01"></path>
-            </svg>
+            <span>Settings</span>
           </button>
         </nav>
+
+        <div class="window-controls" aria-label="Window controls">
+          <button id="windowMinimizeButton" type="button" aria-label="Minimize">
+            <span aria-hidden="true"></span>
+          </button>
+          <button id="windowMaximizeButton" type="button" aria-label="Maximize">
+            <span aria-hidden="true"></span>
+          </button>
+          <button id="windowCloseButton" type="button" aria-label="Close">
+            <span aria-hidden="true"></span>
+          </button>
+        </div>
       </header>
 
-      <section class="world-screen" aria-labelledby="pageTitle">
-        <h1 id="pageTitle">Select Quicksave</h1>
-
-        <section class="status-strip" aria-label="Current save status">
-          <div>
-            <span class="label">Active quicksave</span>
-            <strong id="activeState">Checking...</strong>
-          </div>
-          <div>
-            <span class="label">Last modified</span>
-            <strong id="activeModified">-</strong>
-          </div>
-          <div>
-            <span class="label">Size</span>
-            <strong id="activeSize">-</strong>
-          </div>
-        </section>
-
-        <section class="world-list-frame" aria-label="Saved quicksaves">
-          <div class="save-list" id="saveList" role="listbox" aria-label="Saved quicksaves"></div>
-        </section>
-
-        <section class="selected-summary" id="detailView" aria-label="Selected quicksave details">
-          <div class="detail-empty" id="emptyDetail">
-            <span>No save selected</span>
-          </div>
-          <div class="detail-content hidden" id="detailContent">
-            <div>
-              <span class="label">Selected save</span>
-              <strong id="detailName"></strong>
+      <section class="content-grid" aria-label="Scenario Manager">
+        <section class="library-panel panel" aria-label="Save library">
+          <div class="library-toolbar">
+            <label class="search-box" for="searchInput">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <circle cx="11" cy="11" r="7"></circle>
+                <path d="m16.5 16.5 4 4"></path>
+              </svg>
+              <input id="searchInput" type="search" placeholder="Search scenarios..." autocomplete="off">
+            </label>
+            <div class="filter-group" aria-label="Library filters">
+              <button class="filter-chip" type="button" data-filter="official">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <circle cx="12" cy="12" r="9"></circle>
+                  <path d="M3 12h18"></path>
+                  <path d="M12 3a14 14 0 0 1 0 18"></path>
+                  <path d="M12 3a14 14 0 0 0 0 18"></path>
+                </svg>
+                <span>Official</span>
+              </button>
+              <button class="filter-chip" type="button" data-filter="workshop">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M14.7 6.3a4 4 0 0 0 4.9 4.9l-8.4 8.4a2.2 2.2 0 0 1-3.1-3.1Z"></path>
+                  <path d="m4 4 5 5"></path>
+                  <path d="m5 3-2 2 3 3 2-2Z"></path>
+                </svg>
+                <span>Workshop</span>
+              </button>
+              <button class="filter-chip" type="button" data-filter="legacy">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M6 7h12v12H6Z"></path>
+                  <path d="M9 4h6"></path>
+                  <path d="M9 11h6"></path>
+                </svg>
+                <span>Legacy</span>
+              </button>
             </div>
+            <button class="add-button" id="newSaveButton" type="button" aria-label="Save current quicksave">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M12 5v14"></path>
+                <path d="M5 12h14"></path>
+              </svg>
+            </button>
+          </div>
+
+          <h1 class="panel-title" id="pageTitle">SAVE LIBRARY</h1>
+          <div class="scenario-list" id="saveList" role="listbox" aria-label="Saved quicksaves"></div>
+
+          <footer class="library-footer">
+            <div class="save-count">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <ellipse cx="12" cy="5" rx="8" ry="3"></ellipse>
+                <path d="M4 5v6c0 1.7 3.6 3 8 3s8-1.3 8-3V5"></path>
+                <path d="M4 11v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6"></path>
+              </svg>
+              <span id="saveCount">0 saves</span>
+            </div>
+            <div class="storage-location">
+              <span>Storage location:</span>
+              <span id="managerPath"></span>
+              <button class="text-link" id="pathsButton" type="button">Change...</button>
+            </div>
+          </footer>
+        </section>
+
+        <section class="detail-panel panel" id="detailView" aria-label="Selected scenario details">
+          <div class="detail-empty" id="emptyDetail">
+            <span>No scenario selected</span>
+          </div>
+
+          <div class="detail-content hidden" id="detailContent">
+            <h2 class="panel-title">SELECTED SCENARIO</h2>
+            <div class="scenario-hero scene-0" id="detailHero" aria-hidden="true"></div>
+            <div class="detail-heading">
+              <h3 id="detailName"></h3>
+              <span class="active-pill hidden" id="activatedPill">Last activated</span>
+            </div>
+
             <dl class="detail-stats">
               <div>
-                <dt>Saved</dt>
-                <dd id="detailCreated"></dd>
-              </div>
-              <div>
-                <dt>Modified</dt>
-                <dd id="detailModified"></dd>
-              </div>
-              <div>
-                <dt>Required map</dt>
+                <dt>Required map:</dt>
                 <dd id="detailMap"></dd>
               </div>
               <div>
-                <dt>Map type</dt>
-                <dd id="detailMapType"></dd>
-              </div>
-              <div>
-                <dt>Size</dt>
-                <dd id="detailSize"></dd>
-              </div>
-              <div>
-                <dt>Version</dt>
+                <dt>Required mods:</dt>
                 <dd id="detailVersion"></dd>
               </div>
               <div>
-                <dt>Load instruction</dt>
-                <dd id="detailInstruction"></dd>
+                <dt>Map type:</dt>
+                <dd id="detailMapType"></dd>
+              </div>
+              <div>
+                <dt>File size:</dt>
+                <dd id="detailSize"></dd>
+              </div>
+              <div>
+                <dt>Compatibility:</dt>
+                <dd id="detailCompatibility"></dd>
+              </div>
+              <div>
+                <dt>Created:</dt>
+                <dd id="detailCreated"></dd>
+              </div>
+              <div class="wide">
+                <dt>Notes:</dt>
+                <dd id="detailNotes"></dd>
               </div>
             </dl>
-            <span class="active-pill hidden" id="activatedPill">Last activated</span>
+
+            <section class="instructions-box" aria-label="Instructions">
+              <div class="instruction-title">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <circle cx="12" cy="12" r="9"></circle>
+                  <path d="M12 8h.01"></path>
+                  <path d="M11 11h1v5h1"></path>
+                </svg>
+                <span>INSTRUCTIONS</span>
+              </div>
+              <ol>
+                <li>Click Load into Teardown</li>
+                <li id="detailInstruction"></li>
+                <li>Press F9 / Quickload</li>
+              </ol>
+            </section>
+
+            <div class="detail-actions">
+              <button class="primary-button" id="activateButton" type="button">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M7 10V6h10v4"></path>
+                  <path d="M5 10h14v10H5Z"></path>
+                  <path d="M12 13v4"></path>
+                  <path d="M9 16h6"></path>
+                </svg>
+                <span>Load into Teardown</span>
+              </button>
+              <button class="launch-button" id="openTeardownButton" type="button">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="m8 5 11 7-11 7Z"></path>
+                </svg>
+                <span>Launch Teardown</span>
+              </button>
+              <div class="detail-action-grid">
+                <button class="ghost-button" id="copyPathButton" type="button">
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M12 3v12"></path>
+                    <path d="m7 8 5-5 5 5"></path>
+                    <path d="M5 15v5h14v-5"></path>
+                  </svg>
+                  <span>Export</span>
+                </button>
+                <button class="ghost-button" id="updateButton" type="button">
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="m16 5 3 3L8 19H5v-3Z"></path>
+                  </svg>
+                  <span>Edit</span>
+                </button>
+                <button class="danger-button" id="deleteButton" type="button">
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M4 7h16"></path>
+                    <path d="M10 11v6"></path>
+                    <path d="M14 11v6"></path>
+                    <path d="M6 7l1 14h10l1-14"></path>
+                    <path d="M9 7V4h6v3"></path>
+                  </svg>
+                  <span>Delete</span>
+                </button>
+              </div>
+            </div>
           </div>
         </section>
-
-        <footer class="world-actions">
-          <div class="button-row primary-actions">
-            <button class="primary-button" id="activateButton" type="button">Load into Teardown</button>
-            <button class="ghost-button" id="newSaveButton" type="button">Save Current Quicksave</button>
-          </div>
-          <div class="button-row secondary-actions">
-            <button class="ghost-button" id="backupButton" type="button">Backup Current</button>
-            <button class="ghost-button" id="openTeardownButton" type="button">Open Teardown</button>
-            <button class="ghost-button" id="showMapButton" type="button">Show Required Map</button>
-            <button class="ghost-button" id="updateSlotButton" type="button">Update Slot</button>
-            <button class="ghost-button" id="copyPathButton" type="button">Copy Save Path</button>
-            <button class="ghost-button" id="updateButton" type="button">Edit Details</button>
-            <button class="ghost-button" id="pathsButton" type="button">Open Folders</button>
-            <button class="danger-button" id="deleteButton" type="button">Delete</button>
-          </div>
-          <span id="managerPath" class="manager-path"></span>
-        </footer>
       </section>
+
+      <footer class="bottom-status">
+        <div class="backup-copy">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M12 3 20 6v6c0 5-3.4 7.9-8 9-4.6-1.1-8-4-8-9V6Z"></path>
+            <path d="m8.5 12 2.2 2.2 4.8-5"></path>
+          </svg>
+          <span>Your current quicksave will be backed up automatically.</span>
+        </div>
+        <button class="backup-link" id="backupButton" type="button">
+          <span>Open Backups Folder</span>
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M3 7h6l2 2h10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"></path>
+            <path d="M3 7V5a2 2 0 0 1 2-2h4l2 2h6a2 2 0 0 1 2 2v2"></path>
+          </svg>
+        </button>
+      </footer>
     </main>
 
     <dialog id="createDialog">
@@ -138,7 +254,7 @@
         <h2>Save Current Quicksave</h2>
         <label class="field">
           <span>Name</span>
-          <input id="createName" type="text" maxlength="80" placeholder="Downtown escape route">
+          <input id="createName" type="text" maxlength="80" placeholder="Bridge Ambush">
         </label>
         <label class="field">
           <span>Required map</span>
@@ -155,16 +271,16 @@
           </select>
         </label>
         <label class="field">
-          <span>Teardown version</span>
-          <input id="createTeardownVersion" type="text" maxlength="60" placeholder="Optional">
+          <span>Required mods</span>
+          <input id="createTeardownVersion" type="text" maxlength="60" placeholder="None">
         </label>
         <label class="field">
           <span>Load instruction</span>
-          <input id="createRequiredMapHint" type="text" maxlength="180" placeholder="Open Lee Chemicals, then press F9 / Quickload">
+          <input id="createRequiredMapHint" type="text" maxlength="180" placeholder="Open Lee Chemicals in Teardown">
         </label>
         <label class="field">
           <span>Notes</span>
-          <textarea id="createNotes" rows="4" maxlength="600" placeholder="Map, mods, or setup details"></textarea>
+          <textarea id="createNotes" rows="4" maxlength="600" placeholder="Vehicles, explosives, staged destruction setup."></textarea>
         </label>
         <div class="action-row">
           <button class="primary-button" id="confirmCreateButton" value="confirm" type="submit">Create Save</button>
@@ -195,7 +311,7 @@
           </select>
         </label>
         <label class="field">
-          <span>Teardown version</span>
+          <span>Required mods</span>
           <input id="teardownVersionInput" type="text" maxlength="60">
         </label>
         <label class="field">
@@ -240,7 +356,7 @@
           <span>Update backup frequency</span>
           <input id="updateBackupEveryInput" type="number" min="2" max="50" step="1">
         </label>
-        <p class="dialog-note">Manual Backup Current always creates a backup. These settings only control automatic backups made during Load and Update Slot.</p>
+        <p class="dialog-note">These settings control automatic backups made during Load and Update Slot.</p>
         <div class="action-row">
           <button class="primary-button" id="confirmSettingsButton" value="confirm" type="submit">Save Settings</button>
           <button class="ghost-button" value="cancel" type="submit">Cancel</button>

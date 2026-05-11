@@ -23,6 +23,7 @@
     "productName": "Teardown Quicksave Manager",
     "files": [
       "desktop-main.js",
+      "preload.js",
       "server.js",
       "public/**/*",
       "package.json"
@@ -31,7 +32,8 @@
       "output": "dist"
     },
     "win": {
-      "target": "portable"
+      "target": "portable",
+      "signAndEditExecutable": false
     }
   }
 }
