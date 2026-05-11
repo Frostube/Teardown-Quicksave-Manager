@@ -1,0 +1,270 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Teardown Quicksave Manager</title>
+    <link rel="icon" href="data:,">
+    <link rel="stylesheet" href="./styles.css">
+  </head>
+  <body>
+    <main class="app-shell">
+      <header class="window-bar">
+        <div class="brand">
+          <div class="mark" aria-hidden="true">T</div>
+          <div>
+            <div class="brand-title">TEARDOWN</div>
+            <div class="brand-subtitle">Quicksave Manager</div>
+          </div>
+        </div>
+        <nav class="tool-tabs" aria-label="Primary">
+          <button class="icon-tab active" id="refreshButton" type="button" title="Refresh saves" aria-label="Refresh saves">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M20 11a8 8 0 0 0-14.6-4.5L4 8"></path>
+              <path d="M4 4v4h4"></path>
+              <path d="M4 13a8 8 0 0 0 14.6 4.5L20 16"></path>
+              <path d="M20 20v-4h-4"></path>
+            </svg>
+          </button>
+          <button class="icon-tab" id="revealButton" type="button" title="Open paths" aria-label="Open paths">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M3 7h6l2 2h10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"></path>
+              <path d="M3 7V5a2 2 0 0 1 2-2h4l2 2h6a2 2 0 0 1 2 2v2"></path>
+            </svg>
+          </button>
+          <button class="icon-tab" id="settingsButton" type="button" title="Settings" aria-label="Settings">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <circle cx="12" cy="12" r="3"></circle>
+              <path d="M19.4 15a1.8 1.8 0 0 0 .4 2l.1.1-2.1 2.1-.1-.1a1.8 1.8 0 0 0-2-.4 1.8 1.8 0 0 0-1.1 1.7V21h-3v-.6a1.8 1.8 0 0 0-1.1-1.7 1.8 1.8 0 0 0-2 .4l-.1.1-2.1-2.1.1-.1a1.8 1.8 0 0 0 .4-2 1.8 1.8 0 0 0-1.7-1.1H4v-3h.6a1.8 1.8 0 0 0 1.7-1.1 1.8 1.8 0 0 0-.4-2l-.1-.1 2.1-2.1.1.1a1.8 1.8 0 0 0 2 .4A1.8 1.8 0 0 0 11.1 4V3h3v1a1.8 1.8 0 0 0 1.1 1.7 1.8 1.8 0 0 0 2-.4l.1-.1 2.1 2.1-.1.1a1.8 1.8 0 0 0-.4 2 1.8 1.8 0 0 0 1.7 1.1h.4v3h-.4a1.8 1.8 0 0 0-1.2 1.5Z"></path>
+            </svg>
+          </button>
+          <button class="icon-tab" id="helpButton" type="button" title="Help" aria-label="Help">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <circle cx="12" cy="12" r="9"></circle>
+              <path d="M9.5 9a2.7 2.7 0 0 1 5.1 1.2c0 1.9-2.6 2.2-2.6 4"></path>
+              <path d="M12 18h.01"></path>
+            </svg>
+          </button>
+        </nav>
+      </header>
+
+      <section class="world-screen" aria-labelledby="pageTitle">
+        <h1 id="pageTitle">Select Quicksave</h1>
+
+        <section class="status-strip" aria-label="Current save status">
+          <div>
+            <span class="label">Active quicksave</span>
+            <strong id="activeState">Checking...</strong>
+          </div>
+          <div>
+            <span class="label">Last modified</span>
+            <strong id="activeModified">-</strong>
+          </div>
+          <div>
+            <span class="label">Size</span>
+            <strong id="activeSize">-</strong>
+          </div>
+        </section>
+
+        <section class="world-list-frame" aria-label="Saved quicksaves">
+          <div class="save-list" id="saveList" role="listbox" aria-label="Saved quicksaves"></div>
+        </section>
+
+        <section class="selected-summary" id="detailView" aria-label="Selected quicksave details">
+          <div class="detail-empty" id="emptyDetail">
+            <span>No save selected</span>
+          </div>
+          <div class="detail-content hidden" id="detailContent">
+            <div>
+              <span class="label">Selected save</span>
+              <strong id="detailName"></strong>
+            </div>
+            <dl class="detail-stats">
+              <div>
+                <dt>Saved</dt>
+                <dd id="detailCreated"></dd>
+              </div>
+              <div>
+                <dt>Modified</dt>
+                <dd id="detailModified"></dd>
+              </div>
+              <div>
+                <dt>Required map</dt>
+                <dd id="detailMap"></dd>
+              </div>
+              <div>
+                <dt>Map type</dt>
+                <dd id="detailMapType"></dd>
+              </div>
+              <div>
+                <dt>Size</dt>
+                <dd id="detailSize"></dd>
+              </div>
+              <div>
+                <dt>Version</dt>
+                <dd id="detailVersion"></dd>
+              </div>
+              <div>
+                <dt>Load instruction</dt>
+                <dd id="detailInstruction"></dd>
+              </div>
+            </dl>
+            <span class="active-pill hidden" id="activatedPill">Last activated</span>
+          </div>
+        </section>
+
+        <footer class="world-actions">
+          <div class="button-row primary-actions">
+            <button class="primary-button" id="activateButton" type="button">Load into Teardown</button>
+            <button class="ghost-button" id="newSaveButton" type="button">Save Current Quicksave</button>
+          </div>
+          <div class="button-row secondary-actions">
+            <button class="ghost-button" id="backupButton" type="button">Backup Current</button>
+            <button class="ghost-button" id="openTeardownButton" type="button">Open Teardown</button>
+            <button class="ghost-button" id="showMapButton" type="button">Show Required Map</button>
+            <button class="ghost-button" id="updateSlotButton" type="button">Update Slot</button>
+            <button class="ghost-button" id="copyPathButton" type="button">Copy Save Path</button>
+            <button class="ghost-button" id="updateButton" type="button">Edit Details</button>
+            <button class="ghost-button" id="pathsButton" type="button">Open Folders</button>
+            <button class="danger-button" id="deleteButton" type="button">Delete</button>
+          </div>
+          <span id="managerPath" class="manager-path"></span>
+        </footer>
+      </section>
+    </main>
+
+    <dialog id="createDialog">
+      <form method="dialog" class="dialog-card">
+        <h2>Save Current Quicksave</h2>
+        <label class="field">
+          <span>Name</span>
+          <input id="createName" type="text" maxlength="80" placeholder="Downtown escape route">
+        </label>
+        <label class="field">
+          <span>Required map</span>
+          <input id="createMapName" type="text" maxlength="120" placeholder="Lee Chemicals">
+        </label>
+        <label class="field">
+          <span>Map type</span>
+          <select id="createMapType">
+            <option value="unknown">Unknown</option>
+            <option value="official">Official campaign/sandbox</option>
+            <option value="workshop">Workshop map</option>
+            <option value="local_mod">Local mod</option>
+            <option value="dev_map">My dev map</option>
+          </select>
+        </label>
+        <label class="field">
+          <span>Teardown version</span>
+          <input id="createTeardownVersion" type="text" maxlength="60" placeholder="Optional">
+        </label>
+        <label class="field">
+          <span>Load instruction</span>
+          <input id="createRequiredMapHint" type="text" maxlength="180" placeholder="Open Lee Chemicals, then press F9 / Quickload">
+        </label>
+        <label class="field">
+          <span>Notes</span>
+          <textarea id="createNotes" rows="4" maxlength="600" placeholder="Map, mods, or setup details"></textarea>
+        </label>
+        <div class="action-row">
+          <button class="primary-button" id="confirmCreateButton" value="confirm" type="submit">Create Save</button>
+          <button class="ghost-button" value="cancel" type="submit">Cancel</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="editDialog">
+      <form method="dialog" class="dialog-card">
+        <h2>Edit Quicksave</h2>
+        <label class="field">
+          <span>Name</span>
+          <input id="nameInput" type="text" maxlength="80">
+        </label>
+        <label class="field">
+          <span>Required map</span>
+          <input id="mapNameInput" type="text" maxlength="120">
+        </label>
+        <label class="field">
+          <span>Map type</span>
+          <select id="mapTypeInput">
+            <option value="unknown">Unknown</option>
+            <option value="official">Official campaign/sandbox</option>
+            <option value="workshop">Workshop map</option>
+            <option value="local_mod">Local mod</option>
+            <option value="dev_map">My dev map</option>
+          </select>
+        </label>
+        <label class="field">
+          <span>Teardown version</span>
+          <input id="teardownVersionInput" type="text" maxlength="60">
+        </label>
+        <label class="field">
+          <span>Load instruction</span>
+          <input id="requiredMapHintInput" type="text" maxlength="180">
+        </label>
+        <label class="field">
+          <span>Notes</span>
+          <textarea id="notesInput" rows="4" maxlength="600"></textarea>
+        </label>
+        <div class="action-row">
+          <button class="primary-button" id="confirmUpdateButton" value="confirm" type="submit">Save Details</button>
+          <button class="ghost-button" value="cancel" type="submit">Cancel</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="settingsDialog">
+      <form method="dialog" class="dialog-card">
+        <h2>Settings</h2>
+        <label class="field">
+          <span>Automatic backup before Load</span>
+          <select id="backupBeforeLoadInput">
+            <option value="every_n">Every N loads</option>
+            <option value="always">Every load</option>
+            <option value="never">Never</option>
+          </select>
+        </label>
+        <label class="field">
+          <span>Load backup frequency</span>
+          <input id="loadBackupEveryInput" type="number" min="2" max="50" step="1">
+        </label>
+        <label class="field">
+          <span>Automatic backup before Update Slot</span>
+          <select id="backupBeforeUpdateInput">
+            <option value="every_n">Every N updates</option>
+            <option value="always">Every update</option>
+            <option value="never">Never</option>
+          </select>
+        </label>
+        <label class="field">
+          <span>Update backup frequency</span>
+          <input id="updateBackupEveryInput" type="number" min="2" max="50" step="1">
+        </label>
+        <p class="dialog-note">Manual Backup Current always creates a backup. These settings only control automatic backups made during Load and Update Slot.</p>
+        <div class="action-row">
+          <button class="primary-button" id="confirmSettingsButton" value="confirm" type="submit">Save Settings</button>
+          <button class="ghost-button" value="cancel" type="submit">Cancel</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="infoDialog">
+      <form method="dialog" class="dialog-card wide">
+        <h2 id="infoTitle">Info</h2>
+        <pre id="infoText"></pre>
+        <div class="path-actions" aria-label="Open folders">
+          <button class="ghost-button" id="openActiveButton" type="button">Open Active Folder</button>
+          <button class="ghost-button" id="openSavesButton" type="button">Open Saves</button>
+          <button class="ghost-button" id="openBackupsButton" type="button">Open Backups</button>
+          <button class="ghost-button" id="openDeletedButton" type="button">Open Deleted</button>
+        </div>
+        <div class="action-row">
+          <button class="primary-button" value="ok" type="submit">OK</button>
+        </div>
+      </form>
+    </dialog>
+
+    <div class="toast hidden" id="toast" role="status" aria-live="polite"></div>
+    <script src="./app.js"></script>
+  </body>
+</html>

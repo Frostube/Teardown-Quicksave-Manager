@@ -1,0 +1,22 @@
+# Dependencies
+node_modules/
+APP/node_modules/
+
+# Build outputs
+dist/
+APP/dist/
+APP/output/
+APP/.playwright-cli/
+
+# Runtime save data
+config.json
+saves/
+backups/
+deleted/
+
+# Local editor/system files
+.vscode/
+.DS_Store
+Thumbs.db
+npm-debug.log*
+

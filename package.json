@@ -1,0 +1,11 @@
+{
+  "name": "teardown-quicksave-manager-workspace",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Workspace command shortcuts for Teardown Quicksave Manager.",
+  "scripts": {
+    "start": "npm --prefix APP start",
+    "desktop": "npm --prefix APP run desktop",
+    "package-win": "npm --prefix APP run package-win"
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "name": "teardown-quicksave-manager",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Local companion app for managing multiple Teardown quicksave slots.",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

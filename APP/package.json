@@ -1,0 +1,37 @@
+{
+  "name": "teardown-quicksave-manager",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Local companion app for managing multiple Teardown quicksave slots.",
+  "author": "Teardown Quicksave Manager",
+  "type": "commonjs",
+  "main": "desktop-main.js",
+  "scripts": {
+    "start": "node server.js",
+    "desktop": "electron .",
+    "package-win": "electron-builder --win portable"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "devDependencies": {
+    "electron": "^30.5.1",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "com.teardown.quicksave-manager",
+    "productName": "Teardown Quicksave Manager",
+    "files": [
+      "desktop-main.js",
+      "server.js",
+      "public/**/*",
+      "package.json"
+    ],
+    "directories": {
+      "output": "dist"
+    },
+    "win": {
+      "target": "portable"
+    }
+  }
+}
