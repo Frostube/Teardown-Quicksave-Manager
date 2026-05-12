@@ -138,37 +138,49 @@ svg {
 .brand {
   display: flex;
   align-items: center;
-  gap: 9px;
+  gap: 14px;
   min-width: 0;
-  transform: translateY(-5px);
+  transform: translateY(-2px);
 }
 
-.brand-logo {
-  width: clamp(170px, 15vw, 222px);
-  max-height: 52px;
+.brand-logo-icon {
+  width: 48px;
+  height: 48px;
   flex: 0 0 auto;
   object-fit: contain;
 }
 
 .brand-copy {
   display: flex;
-  align-items: baseline;
-  gap: 19px;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
   min-width: 0;
 }
 
 .brand-subtitle {
-  color: #a9a49c;
-  font-size: 20px;
-  font-weight: 500;
+  color: #f3f0e8;
+  font-size: 22px;
+  font-weight: 600;
   line-height: 1;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+}
+
+.brand-tagline {
+  color: #c6c1b8;
+  font-family: "Segoe UI", Arial, sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.1;
+  letter-spacing: 0.02em;
   white-space: nowrap;
 }
 
 .brand-disclaimer {
   color: rgba(184, 179, 170, 0.72);
   font-family: "Segoe UI", Arial, sans-serif;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 500;
   line-height: 1.15;
   white-space: nowrap;
@@ -684,6 +696,27 @@ svg {
   font-size: 23px;
 }
 
+.scenario-hint {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 10px;
+  padding: 14px 18px;
+  border: 1px dashed rgba(255, 255, 255, 0.14);
+  border-radius: var(--radius);
+  color: var(--muted);
+  background: rgba(0, 0, 0, 0.28);
+  font-family: "Segoe UI", Arial, sans-serif;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.scenario-hint-title {
+  color: #d0cbc2;
+  font-size: 14px;
+  font-weight: 600;
+}
+
 .library-footer {
   min-height: 47px;
   display: flex;
@@ -767,10 +800,16 @@ svg {
   scrollbar-color: rgba(242, 183, 25, 0.58) rgba(255, 255, 255, 0.1);
 }
 
+.detail-content > * {
+  flex-shrink: 0;
+}
+
 .preview-frame {
   position: relative;
-  flex: 0 1 auto;
+  flex: 0 0 auto;
   min-height: 120px;
+  overflow: hidden;
+  border-radius: 4px;
 }
 
 .scenario-hero {
@@ -948,10 +987,10 @@ dd {
 
 .mods-panel {
   display: grid;
-  gap: 8px;
+  gap: 10px;
   border: 1px solid rgba(255, 255, 255, 0.16);
   border-radius: 5px;
-  padding: 10px 12px;
+  padding: 14px 16px;
   background: rgba(5, 5, 5, 0.4);
 }
 
@@ -972,29 +1011,50 @@ dd {
   font-size: 19px;
   font-weight: 600;
   line-height: 1;
+  letter-spacing: 0.04em;
 }
 
 .mods-panel p {
-  margin-top: 4px;
   color: var(--muted);
   font-family: "Segoe UI", Arial, sans-serif;
   font-size: 13px;
   line-height: 1.25;
 }
 
-#detailModsSummary {
-  flex: 0 0 auto;
+.mods-source {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.mods-source-date {
+  color: #8a857c;
+}
+
+.mods-summary {
+  margin-top: 2px;
   color: var(--accent);
   font-family: "Segoe UI", Arial, sans-serif;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 700;
-  white-space: nowrap;
+  line-height: 1.2;
 }
 
 .mods-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.mods-toolbar .mods-toggle {
+  margin-left: auto;
+}
+
+.mods-expand {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) repeat(3, auto);
-  gap: 8px;
+  gap: 10px;
+  margin-top: 6px;
 }
 
 .modlist-compare-field {
@@ -1088,15 +1148,13 @@ dd {
 }
 
 .instructions-box {
-  min-height: 43px;
   flex: 0 0 auto;
   display: flex;
-  align-items: center;
-  gap: 18px;
-  overflow: hidden;
+  flex-direction: column;
+  gap: 8px;
   border: 1px solid rgba(255, 255, 255, 0.18);
   border-radius: 5px;
-  padding: 9px 22px;
+  padding: 12px 22px 14px;
   background: rgba(5, 5, 5, 0.42);
 }
 
@@ -1107,6 +1165,7 @@ dd {
   color: var(--accent);
   font-size: 16px;
   font-weight: 600;
+  letter-spacing: 0.04em;
 }
 
 .instruction-title svg,
@@ -1123,22 +1182,18 @@ dd {
 .instructions-box ol {
   min-width: 0;
   display: flex;
-  align-items: center;
-  gap: 22px;
+  flex-direction: column;
+  gap: 4px;
   margin: 0;
-  padding: 0;
+  padding: 0 0 0 36px;
   color: #d6d0c7;
   font-family: "Segoe UI", Arial, sans-serif;
   font-size: 15px;
-  line-height: 1.34;
-  list-style-position: inside;
+  line-height: 1.4;
 }
 
 .instructions-box li {
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .detail-actions {
@@ -1168,11 +1223,24 @@ dd {
 }
 
 .primary-button {
+  min-height: 48px;
+  border-width: 1.5px;
   border-color: var(--accent);
-  color: #f4ead0;
+  color: #fff6de;
   background:
-    linear-gradient(90deg, rgba(242, 183, 25, 0.16), rgba(0, 0, 0, 0.12)),
+    linear-gradient(90deg, rgba(242, 183, 25, 0.36), rgba(242, 183, 25, 0.18)),
     rgba(9, 8, 7, 0.72);
+  font-size: 21px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  box-shadow: 0 0 0 1px rgba(242, 183, 25, 0.18), 0 6px 22px rgba(242, 183, 25, 0.12);
+}
+
+.primary-button:hover {
+  background:
+    linear-gradient(90deg, rgba(242, 183, 25, 0.5), rgba(242, 183, 25, 0.26)),
+    rgba(9, 8, 7, 0.72);
+  box-shadow: 0 0 0 1px rgba(242, 183, 25, 0.28), 0 8px 26px rgba(242, 183, 25, 0.18);
 }
 
 .launch-button {
@@ -1327,6 +1395,10 @@ dialog::backdrop {
   font-size: 30px;
   font-weight: 650;
   line-height: 1;
+}
+
+.dialog-card h2.success {
+  color: var(--green);
 }
 
 .dialog-card.wide {
@@ -1553,10 +1625,6 @@ pre {
     display: block;
   }
 
-  .brand-logo {
-    width: min(182px, 58vw);
-  }
-
   .brand-subtitle {
     margin-top: 4px;
   }
@@ -1568,8 +1636,7 @@ pre {
   .top-tabs,
   .filter-group,
   .detail-action-grid,
-  .detail-stats,
-  .mods-toolbar {
+  .detail-stats {
     grid-template-columns: 1fr;
   }
 

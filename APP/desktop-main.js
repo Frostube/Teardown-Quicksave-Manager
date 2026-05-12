@@ -46,6 +46,7 @@ async function createWindow() {
     minWidth: 1120,
     minHeight: 720,
     title: "Teardown Quicksave Manager",
+    icon: path.join(__dirname, "public", "assets", "icons", "logo.png"),
     frame: false,
     backgroundColor: "#050505",
     webPreferences: {

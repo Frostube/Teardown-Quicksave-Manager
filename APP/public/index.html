@@ -4,17 +4,18 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Teardown Scenario Manager</title>
-    <link rel="icon" href="data:,">
+    <link rel="icon" type="image/png" href="./assets/icons/logo.png">
     <link rel="stylesheet" href="./styles.css">
   </head>
   <body>
     <main class="app-shell">
       <header class="window-bar">
-        <div class="brand" aria-label="Teardown Scenario Manager">
-          <img class="brand-logo" src="./assets/teardown_logo.svg" alt="Teardown">
+        <div class="brand" aria-label="Scenario Manager for Teardown">
+          <img class="brand-logo-icon" src="./assets/icons/logo.png" alt="" aria-hidden="true">
           <div class="brand-copy">
             <div class="brand-subtitle">SCENARIO MANAGER</div>
-            <div class="brand-disclaimer">(Community-made tool. Not affiliated with Tuxedo Labs.)</div>
+            <div class="brand-tagline">for Teardown</div>
+            <div class="brand-disclaimer">Community-made tool. Not affiliated with Tuxedo Labs.</div>
           </div>
         </div>
 
@@ -83,7 +84,7 @@
             <div class="storage-location">
               <span>Storage location:</span>
               <span id="managerPath"></span>
-              <button class="text-link" id="pathsButton" type="button">Paths...</button>
+              <button class="text-link" id="pathsButton" type="button">Manage Paths</button>
             </div>
           </footer>
         </section>
@@ -135,24 +136,28 @@
               </div>
             </dl>
 
-            <section class="mods-panel" aria-label="Required mods">
+            <section class="mods-panel" aria-label="Captured mod profile">
               <div class="mods-panel-header">
-                <div>
-                  <h4>Required Mods</h4>
-                  <p id="modsSource">No mod snapshot captured.</p>
-                </div>
-                <strong id="detailModsSummary">Not captured</strong>
+                <h4>CAPTURED MOD PROFILE</h4>
               </div>
+              <p id="modsSource" class="mods-source">
+                <span class="mods-source-profile">No mod snapshot captured.</span>
+                <span class="mods-source-date hidden"></span>
+              </p>
+              <strong id="detailModsSummary" class="mods-summary">Not captured</strong>
               <div class="mods-toolbar">
-                <label class="modlist-compare-field">
-                  <span>Compare against</span>
-                  <select id="modlistSelect" aria-label="Compare against Teardown modlist"></select>
-                </label>
-                <button class="ghost-button compact" id="captureModsButton" type="button">Capture</button>
-                <button class="ghost-button compact" id="compareModsButton" type="button">Compare</button>
-                <button class="ghost-button compact" id="copyModLinksButton" type="button">Copy Links</button>
+                <button class="ghost-button compact" id="captureModsButton" type="button">Capture Current Mods</button>
+                <button class="ghost-button compact" id="compareModsButton" type="button">Compare Mods</button>
+                <button class="ghost-button compact" id="copyModLinksButton" type="button">Copy Workshop Links</button>
+                <button class="ghost-button compact mods-toggle" id="modsToggleButton" type="button" aria-expanded="false" aria-controls="modsExpand">Show Mods</button>
               </div>
-              <div class="mods-list" id="requiredModsList"></div>
+              <div class="mods-expand hidden" id="modsExpand">
+                <label class="modlist-compare-field">
+                  <span>Current Teardown mod profile</span>
+                  <select id="modlistSelect" aria-label="Current Teardown mod profile"></select>
+                </label>
+                <div class="mods-list" id="requiredModsList"></div>
+              </div>
             </section>
 
             <section class="instructions-box" aria-label="Instructions">
@@ -161,7 +166,7 @@
                 <span>INSTRUCTIONS</span>
               </div>
               <ol>
-                <li>Click Load & Launch Teardown</li>
+                <li>Load &amp; Launch Teardown</li>
                 <li id="detailInstruction"></li>
                 <li>Press F9 / Quickload</li>
               </ol>

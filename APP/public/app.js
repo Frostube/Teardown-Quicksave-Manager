@@ -36,6 +36,8 @@ const elements = {
   modsSource: $("#modsSource"),
   modlistSelect: $("#modlistSelect"),
   requiredModsList: $("#requiredModsList"),
+  modsExpand: $("#modsExpand"),
+  modsToggleButton: $("#modsToggleButton"),
   captureModsButton: $("#captureModsButton"),
   compareModsButton: $("#compareModsButton"),
   copyModLinksButton: $("#copyModLinksButton"),
@@ -127,6 +129,12 @@ function loadInstruction(save) {
   if (save.requiredMapHint) return save.requiredMapHint;
   if (save.mapName) return `Open ${save.mapName} in Teardown`;
   return "Open the required map in Teardown";
+}
+
+function loadInstructionShort(save) {
+  if (save.requiredMapHint) return save.requiredMapHint;
+  if (save.mapName) return `Open ${save.mapName}`;
+  return "Open the required map";
 }
 
 function detailTitle(save) {
@@ -222,11 +230,11 @@ function populateModlistSelect(select, selectedId) {
   }
 
   select.disabled = false;
-  const currentId = state.modInventory?.selectedModlistId || "";
   lists.forEach((list) => {
     const option = document.createElement("option");
     option.value = list.id;
-    option.textContent = `${list.name} (${list.mods.length})${list.id === currentId ? " - current in Teardown" : ""}`;
+    const count = list.mods.length;
+    option.textContent = `${list.name} (${count} active mod${count === 1 ? "" : "s"})`;
     select.append(option);
   });
   select.value = lists.some((list) => list.id === selectedId) ? selectedId : lists[0].id;
@@ -264,27 +272,23 @@ function showToast(message) {
 
 function showInfo(title, text, options = {}) {
   elements.infoTitle.textContent = title;
+  elements.infoTitle.classList.toggle("success", options.tone === "success");
   elements.infoText.textContent = text;
   elements.pathActions.classList.toggle("hidden", !options.showPathActions);
   elements.infoDialog.showModal();
 }
 
 function showLoadInstructions(save, result) {
-  showInfo("Ready to Quickload", [
-    `"${save.name}" has been copied into Teardown's active quicksave slot.`,
-    backupResultText(
-      result,
-      `Automatic active-save backup was skipped by your settings. Operations since last automatic backup: ${result.operationsSinceBackup}.`
-    ),
-    "",
-    `Required map:\n${mapName(save)}`,
-    `Map type:\n${mapTypeLabel(save.mapType)}`,
-    "",
-    loadInstruction(save),
-    "",
-    "Teardown is opening through Steam.",
-    "Once the map is loaded, press F9 / Quickload."
-  ].join("\n"), { showPathActions: false });
+  const backupLine = result.backupPath
+    ? `A backup of your previous quicksave was saved to:\n${result.backupPath}`
+    : result.backupSkipped
+      ? "Automatic backup was skipped by your settings."
+      : "";
+  showInfo("Scenario loaded", [
+    "Next:",
+    `${loadInstruction(save)}, then press F9 / Quickload.`,
+    backupLine ? `\n${backupLine}` : ""
+  ].filter(Boolean).join("\n"), { showPathActions: false, tone: "success" });
 }
 
 async function copyText(text, successMessage) {
@@ -330,10 +334,18 @@ function filteredSaves() {
   });
 }
 
+function shortenStoragePath(fullPath) {
+  if (!fullPath) return "";
+  const segments = fullPath.split(/[\\/]/).filter(Boolean);
+  if (segments.length <= 2) return fullPath;
+  return segments.slice(-2).join("\\");
+}
+
 function renderStatus() {
   if (elements.managerPath) {
-    elements.managerPath.textContent = state.status ? state.status.managerRoot : "";
-    elements.managerPath.title = state.status ? state.status.managerRoot : "";
+    const fullPath = state.status?.managerRoot || "";
+    elements.managerPath.textContent = shortenStoragePath(fullPath);
+    elements.managerPath.title = fullPath;
   }
   elements.saveCount.textContent = `${state.saves.length} save${state.saves.length === 1 ? "" : "s"}`;
 }
@@ -377,6 +389,21 @@ function renderLegacyMeta(container, save) {
   container.append(tag, size);
 }
 
+function renderModsSource(profileText, dateText) {
+  const profileEl = elements.modsSource.querySelector(".mods-source-profile");
+  const dateEl = elements.modsSource.querySelector(".mods-source-date");
+  if (profileEl) profileEl.textContent = profileText;
+  if (dateEl) {
+    if (dateText) {
+      dateEl.textContent = dateText;
+      dateEl.classList.remove("hidden");
+    } else {
+      dateEl.textContent = "";
+      dateEl.classList.add("hidden");
+    }
+  }
+}
+
 function renderRequiredMods(save) {
   const selectedModlistId = currentModlistId();
   populateModlistSelect(elements.modlistSelect, selectedModlistId);
@@ -385,8 +412,9 @@ function renderRequiredMods(save) {
   elements.requiredModsList.replaceChildren();
 
   if (!captured || !mods.length) {
-    elements.detailModsSummary.textContent = "Not captured";
-    elements.modsSource.textContent = "No mod snapshot captured.";
+    elements.detailModsSummary.textContent = "No mod snapshot captured.";
+    renderModsSource("Mod profile: not captured yet", "");
+    elements.modsToggleButton.disabled = true;
     const empty = document.createElement("div");
     empty.className = "mod-row";
     empty.textContent = "Capture a Teardown modlist to attach required mods to this save.";
@@ -397,8 +425,9 @@ function renderRequiredMods(save) {
   const summary = summarizeRequiredMods(save, elements.modlistSelect.value);
   const sourceName = captured.source?.name || "Unknown modlist";
   const capturedAt = captured.capturedAt ? formatDate(captured.capturedAt) : "unknown time";
-  elements.detailModsSummary.textContent = `${summary.active}/${summary.total} active`;
-  elements.modsSource.textContent = `Captured from ${sourceName} on ${capturedAt}`;
+  elements.detailModsSummary.textContent = `${summary.active}/${summary.total} currently active`;
+  renderModsSource(`Mod profile: ${sourceName}`, `Captured: ${capturedAt}`);
+  elements.modsToggleButton.disabled = false;
 
   const activeIds = activeModSet(elements.modlistSelect.value);
   const knownMods = modsMap();
@@ -525,6 +554,19 @@ function renderList(saves = filteredSaves()) {
     });
     elements.saveList.append(row);
   });
+
+  if (state.saves.length === 1 && saves.length === 1) {
+    const hint = document.createElement("div");
+    hint.className = "scenario-hint";
+    const title = document.createElement("span");
+    title.className = "scenario-hint-title";
+    title.textContent = "No more scenarios yet.";
+    const body = document.createElement("span");
+    body.style.whiteSpace = "pre-line";
+    body.textContent = "Create another scenario in Teardown,\nthen capture it here using the + button.";
+    hint.append(title, body);
+    elements.saveList.append(hint);
+  }
 }
 
 function renderDetail(visibleSaves = filteredSaves()) {
@@ -541,6 +583,7 @@ function renderDetail(visibleSaves = filteredSaves()) {
   elements.captureModsButton.disabled = !save;
   elements.compareModsButton.disabled = !save;
   elements.copyModLinksButton.disabled = !save;
+  elements.modsToggleButton.disabled = !save;
   elements.uploadPreviewButton.disabled = !save;
 
   if (!save) return;
@@ -553,15 +596,31 @@ function renderDetail(visibleSaves = filteredSaves()) {
   elements.detailMap.textContent = mapName(save);
   elements.detailMapType.textContent = mapTypeLabel(save.mapType);
   elements.detailSize.textContent = formatBytes(save.size);
-  elements.detailVersion.textContent = save.teardownVersion || "None";
+  const install = state.status?.teardownInstall || {};
+  if (save.teardownVersion) {
+    elements.detailVersion.textContent = save.teardownVersion;
+    elements.detailVersion.title = "";
+  } else if (install.version) {
+    elements.detailVersion.textContent = `${install.version} (installed)`;
+    elements.detailVersion.title = `Detected from ${install.exePath || "Teardown.exe"}`;
+  } else {
+    elements.detailVersion.textContent = "Not detected";
+    elements.detailVersion.title = install.diagnostic || "Teardown.exe was not found in any Steam library.";
+  }
   const detailIcon = compatibility.symbol === "check"
     ? `<span class="icon icon-circle-check status-icon ${compatibility.tone}" aria-hidden="true"></span>`
     : `<span class="status-dot ${compatibility.tone}" aria-hidden="true"></span>`;
   elements.detailCompatibility.innerHTML = `${detailIcon}${compatibility.label}`;
   elements.detailNotes.textContent = save.notes || "No notes.";
-  elements.detailInstruction.textContent = loadInstruction(save);
+  elements.detailInstruction.textContent = loadInstructionShort(save);
   elements.activatedPill.classList.toggle("hidden", !save.activatedAt);
   renderRequiredMods(save);
+}
+
+function setModsExpanded(expanded) {
+  elements.modsExpand.classList.toggle("hidden", !expanded);
+  elements.modsToggleButton.textContent = expanded ? "Hide Mods" : "Show Mods";
+  elements.modsToggleButton.setAttribute("aria-expanded", expanded ? "true" : "false");
 }
 
 function render() {
@@ -953,6 +1012,11 @@ elements.compareModsButton.addEventListener("click", () => {
 
 elements.copyModLinksButton.addEventListener("click", () => {
   copyRequiredModLinks().catch((error) => showToast(error.message));
+});
+
+elements.modsToggleButton.addEventListener("click", () => {
+  const expanded = elements.modsToggleButton.getAttribute("aria-expanded") === "true";
+  setModsExpanded(!expanded);
 });
 
 elements.uploadPreviewButton.addEventListener("click", () => {

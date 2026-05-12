@@ -9,7 +9,7 @@
   "scripts": {
     "start": "node server.js",
     "desktop": "electron .",
-    "package-win": "electron-builder --win portable"
+    "package-win": "electron-builder --win nsis"
   },
   "engines": {
     "node": ">=18"
@@ -32,8 +32,15 @@
       "output": "dist"
     },
     "win": {
-      "target": "portable",
-      "signAndEditExecutable": false
+      "target": "nsis",
+      "icon": "public/assets/icons/logo.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
     }
   }
 }

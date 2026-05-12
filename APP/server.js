@@ -258,6 +258,7 @@ async function getStatus() {
   await ensureDirs();
   const active = await statOrNull(activeSavePath);
   const screenshotsDir = await findScreenshotDir();
+  const teardownInstall = await detectTeardownInstall();
   return {
     activeSavePath,
     managerRoot,
@@ -269,7 +270,8 @@ async function getStatus() {
     activeQuicksave: active ? {
       size: active.size,
       modifiedAt: active.mtime.toISOString()
-    } : null
+    } : null,
+    teardownInstall
   };
 }
 
@@ -341,6 +343,128 @@ async function steamAppsDirs() {
     if (await statOrNull(candidate)) dirs.push(candidate);
   }
   return Array.from(new Set(dirs));
+}
+
+let cachedTeardownExe = null;
+let cachedTeardownVersion = "";
+
+async function readSteamLibraryRootsFromVdf() {
+  const roots = new Set();
+  for (const steamAppsDir of await steamAppsDirs()) {
+    const vdfPath = path.join(steamAppsDir, "libraryfolders.vdf");
+    try {
+      const raw = await fs.readFile(vdfPath, "utf8");
+      const matches = raw.matchAll(/"path"\s+"([^"]+)"/gi);
+      for (const match of matches) {
+        roots.add(match[1].replace(/\\\\/g, "\\"));
+      }
+    } catch {}
+  }
+  return Array.from(roots);
+}
+
+async function teardownInstallDirFromManifest() {
+  const candidates = new Set(await steamAppsDirs());
+  for (const root of await readSteamLibraryRootsFromVdf()) {
+    candidates.add(path.join(root, "steamapps"));
+  }
+  for (const steamAppsDir of candidates) {
+    const manifestPath = path.join(steamAppsDir, "appmanifest_1167630.acf");
+    try {
+      const raw = await fs.readFile(manifestPath, "utf8");
+      const match = raw.match(/"installdir"\s+"([^"]+)"/i);
+      if (match) {
+        const installDir = path.join(steamAppsDir, "common", match[1]);
+        if (await statOrNull(installDir)) return installDir;
+      }
+    } catch {}
+  }
+  return "";
+}
+
+async function findTeardownExe() {
+  if (cachedTeardownExe && (await statOrNull(cachedTeardownExe))) return cachedTeardownExe;
+  cachedTeardownExe = null;
+
+  const installDir = await teardownInstallDirFromManifest();
+  if (installDir) {
+    for (const exeName of ["teardown.exe", "Teardown.exe"]) {
+      const exePath = path.join(installDir, exeName);
+      if (await statOrNull(exePath)) {
+        cachedTeardownExe = exePath;
+        return exePath;
+      }
+    }
+    console.warn(`[version] manifest pointed to ${installDir} but no teardown.exe inside`);
+  }
+
+  for (const steamAppsDir of await steamAppsDirs()) {
+    for (const exeName of ["teardown.exe", "Teardown.exe"]) {
+      const exePath = path.join(steamAppsDir, "common", "Teardown", exeName);
+      if (await statOrNull(exePath)) {
+        cachedTeardownExe = exePath;
+        return exePath;
+      }
+    }
+  }
+  return "";
+}
+
+function powerShellExecutable() {
+  const root = process.env.SystemRoot || "C:\\Windows";
+  return path.join(root, "System32", "WindowsPowerShell", "v1.0", "powershell.exe");
+}
+
+function runPowerShell(command) {
+  return new Promise((resolve, reject) => {
+    execFile(powerShellExecutable(), [
+      "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass",
+      "-Command", command
+    ], { windowsHide: true, timeout: 5000 }, (error, stdout, stderr) => {
+      if (error) {
+        error.stderr = String(stderr || "");
+        reject(error);
+      } else {
+        resolve(String(stdout || "").trim());
+      }
+    });
+  });
+}
+
+async function detectTeardownInstall() {
+  if (process.platform !== "win32") {
+    return { exePath: "", version: "", diagnostic: "Version detection only runs on Windows." };
+  }
+  const exe = await findTeardownExe();
+  if (!exe) {
+    const tried = await steamAppsDirs();
+    return {
+      exePath: "",
+      version: "",
+      diagnostic: `teardown.exe not found. Searched: ${tried.join(" | ") || "(no Steam libraries found)"}`
+    };
+  }
+  if (cachedTeardownVersion) {
+    return { exePath: exe, version: cachedTeardownVersion, diagnostic: "" };
+  }
+  const escaped = exe.replace(/'/g, "''");
+  try {
+    const raw = await runPowerShell(
+      `$v = (Get-Item -LiteralPath '${escaped}').VersionInfo; ` +
+      `if ($v.ProductVersion) { $v.ProductVersion } else { $v.FileVersion }`
+    );
+    if (raw) {
+      cachedTeardownVersion = raw;
+      return { exePath: exe, version: raw, diagnostic: "" };
+    }
+    return { exePath: exe, version: "", diagnostic: `PowerShell returned empty version metadata for ${exe}` };
+  } catch (error) {
+    return {
+      exePath: exe,
+      version: "",
+      diagnostic: `PowerShell failed: ${error.message}${error.stderr ? ` | ${error.stderr}` : ""}`
+    };
+  }
 }
 
 async function steamRootDirs() {
