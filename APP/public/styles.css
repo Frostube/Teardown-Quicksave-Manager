@@ -107,6 +107,7 @@ svg {
 .icon-globe { --icon: url("./assets/icons/globe.svg"); }
 .icon-hammer { --icon: url("./assets/icons/hammer.svg"); }
 .icon-history { --icon: url("./assets/icons/history.svg"); }
+.icon-library { --icon: url("./assets/icons/library-big.svg"); }
 .icon-package-2 { --icon: url("./assets/icons/package-2.svg"); }
 .icon-pencil { --icon: url("./assets/icons/pencil.svg"); }
 .icon-plus { --icon: url("./assets/icons/plus.svg"); }
