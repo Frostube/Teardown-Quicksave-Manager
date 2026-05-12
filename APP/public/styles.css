@@ -115,6 +115,7 @@ svg {
 .icon-search { --icon: url("./assets/icons/search.svg"); }
 .icon-settings { --icon: url("./assets/icons/settings.svg"); }
 .icon-star { --icon: url("./assets/icons/star.svg"); }
+.icon-star-filled { --icon: url("./assets/icons/star-filled.svg"); }
 .icon-trash-2 { --icon: url("./assets/icons/trash-2.svg"); }
 
 .app-shell {
@@ -637,9 +638,8 @@ svg {
   color: var(--accent);
 }
 
-.favorite-button.active svg,
-.favorite-button.active .icon {
-  fill: currentColor;
+.favorite-button.active .icon-star {
+  --icon: url("./assets/icons/star-filled.svg");
 }
 
 .row-icon-button svg,
