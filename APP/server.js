@@ -36,6 +36,9 @@ const logsDir = path.join(managerRoot, "logs");
 const logPath = path.join(logsDir, "app.log");
 const configPath = path.join(managerRoot, "config.json");
 const teardownSteamUrl = "steam://rungameid/1167630";
+const teardownRegistryPath = path.join(teardownDataDir, "savegame.xml");
+const autoloadFlagTag = "qsmautoload";
+const legacyAutoloadModId = "local-scenario-manager";
 const packageExtension = ".tdqscenario";
 const packageSchemaVersion = 1;
 const manifestSchemaVersion = 1;
@@ -53,7 +56,8 @@ const defaultSettings = {
   backupBeforeUpdate: "every_n",
   updateBackupEvery: 5,
   quicksavePathOverride: "",
-  enableVersionsTab: false
+  enableVersionsTab: false,
+  autoloadOnLaunch: true
 };
 
 const contentTypes = {
@@ -338,7 +342,8 @@ function normalizeSettings(settings = {}) {
     quicksavePathOverride: normalizeQuicksavePathOverride(
       settings.quicksavePathOverride !== undefined ? settings.quicksavePathOverride : defaultSettings.quicksavePathOverride
     ),
-    enableVersionsTab: Boolean(settings.enableVersionsTab !== undefined ? settings.enableVersionsTab : defaultSettings.enableVersionsTab)
+    enableVersionsTab: Boolean(settings.enableVersionsTab !== undefined ? settings.enableVersionsTab : defaultSettings.enableVersionsTab),
+    autoloadOnLaunch: settings.autoloadOnLaunch === false ? false : true
   };
 }
 
@@ -1856,12 +1861,59 @@ async function launchTeardown() {
   return { launched: teardownSteamUrl };
 }
 
+async function setAutoloadFlag(enabled) {
+  let xml;
+  try {
+    xml = await fs.readFile(teardownRegistryPath, "utf8");
+  } catch (error) {
+    if (error.code === "ENOENT") return { applied: false, reason: "no-savegame-xml" };
+    throw error;
+  }
+
+  // Strip the legacy mod-id-nested block written by earlier versions of the
+  // manager. Teardown's registry paths under `savegame.mod` are literal XML
+  // paths (not auto-scoped to a mod id), so that structure was unreachable
+  // from Lua and is just dead weight in the file now.
+  const legacyPattern = new RegExp(
+    `\\n[\\t ]*<${legacyAutoloadModId}>[\\s\\S]*?</${legacyAutoloadModId}>|\\n[\\t ]*<${legacyAutoloadModId}\\s*/>`
+  );
+  const working = xml.replace(legacyPattern, "");
+
+  const value = enabled ? "true" : "false";
+  const flagPattern = new RegExp(
+    `<${autoloadFlagTag}\\s+value="[^"]*"\\s*/>|<${autoloadFlagTag}>[\\s\\S]*?</${autoloadFlagTag}>`
+  );
+  const flagTag = `<${autoloadFlagTag} value="${value}"/>`;
+
+  let updated;
+  if (flagPattern.test(working)) {
+    updated = working.replace(flagPattern, flagTag);
+  } else {
+    const insertPattern = /(\n\t\t<mod>\n)/;
+    if (!insertPattern.test(working)) return { applied: false, reason: "mod-section-not-found" };
+    updated = working.replace(insertPattern, `$1\t\t\t${flagTag}\n`);
+  }
+
+  if (updated === xml) return { applied: true, unchanged: true };
+  await fs.writeFile(teardownRegistryPath, updated, "utf8");
+  return { applied: true };
+}
+
 async function loadSave(id) {
   const activation = await activateSave(id);
+  const settings = await getSettings();
+  const wantAutoload = Boolean(settings.autoloadOnLaunch);
+  let autoload;
+  try {
+    autoload = await setAutoloadFlag(wantAutoload);
+  } catch (error) {
+    autoload = { applied: false, reason: error.message };
+  }
   const launch = await launchTeardown();
   return {
     ...activation,
-    ...launch
+    ...launch,
+    autoload: { ...autoload, enabled: wantAutoload }
   };
 }
 

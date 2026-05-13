@@ -230,7 +230,7 @@
                 <ol>
                   <li>Load &amp; Launch Teardown</li>
                   <li id="detailInstruction"></li>
-                  <li>Press F9 / Quickload</li>
+                  <li id="quickloadInstruction">Scenario auto-loads once the map is ready</li>
                 </ol>
               </section>
 
@@ -642,10 +642,11 @@
 
             <section class="settings-section" data-settings-section="launch">
               <h3>Launch flow</h3>
-              <div class="phase-stub" data-phase="4">
-                <span class="phase-tag">v0.4</span>
-                <span>Companion-mod toggles, quickload automation, and per-scenario load instructions are part of Phase 4.</span>
-              </div>
+              <label class="field checkbox-field">
+                <input id="autoloadOnLaunchInput" type="checkbox">
+                <span>Auto-trigger quickload after Load &amp; Launch (requires the <strong>Quicksave Manager Auto-Load</strong> mod enabled in Teardown)</span>
+              </label>
+              <p class="dialog-note">The manager arms a flag in Teardown's registry before launch; the companion mod issues the quickload as soon as the map is ready. Disable to fall back to pressing F9 manually.</p>
             </section>
 
             <section class="settings-section" data-settings-section="community">

@@ -43,6 +43,7 @@ const elements = {
   detailCompatibility: $("#detailCompatibility"),
   detailNotes: $("#detailNotes"),
   detailInstruction: $("#detailInstruction"),
+  quickloadInstruction: $("#quickloadInstruction"),
   detailModsSummary: $("#detailModsSummary"),
   modsSource: $("#modsSource"),
   modlistSelect: $("#modlistSelect"),
@@ -73,6 +74,7 @@ const elements = {
   loadBackupEveryInput: $("#loadBackupEveryInput"),
   backupBeforeUpdateInput: $("#backupBeforeUpdateInput"),
   updateBackupEveryInput: $("#updateBackupEveryInput"),
+  autoloadOnLaunchInput: $("#autoloadOnLaunchInput"),
   infoDialog: $("#infoDialog"),
   infoTitle: $("#infoTitle"),
   infoText: $("#infoText"),
@@ -347,9 +349,22 @@ function showLoadInstructions(save, result) {
     : result.backupSkipped
       ? "Automatic backup was skipped by your settings."
       : "";
+  const autoload = result.autoload || {};
+  const autoloadActive = autoload.enabled && autoload.applied;
+  const autoloadFailed = autoload.enabled && !autoload.applied;
+  const nextLine = autoloadActive
+    ? `${loadInstruction(save)}. The scenario will auto-load once the map is ready.`
+    : `${loadInstruction(save)}, then press F9 / Quickload.`;
+  const hints = [];
+  if (autoloadActive) {
+    hints.push("Enable the \"Quicksave Manager Auto-Load\" mod in Teardown if the quickload doesn't trigger.");
+  } else if (autoloadFailed) {
+    hints.push(`Auto-load could not be armed (${autoload.reason || "unknown reason"}). Press F9 / Quickload manually.`);
+  }
   showInfo("Scenario loaded", [
     "Next:",
-    `${loadInstruction(save)}, then press F9 / Quickload.`,
+    nextLine,
+    hints.length ? `\n${hints.join("\n")}` : "",
     backupLine ? `\n${backupLine}` : ""
   ].filter(Boolean).join("\n"), { showPathActions: false, tone: "success" });
 }
@@ -749,6 +764,12 @@ function renderDetail(visibleSaves = filteredSaves()) {
   }
   elements.detailNotes.textContent = save.notes || "No notes.";
   elements.detailInstruction.textContent = loadInstructionShort(save);
+  if (elements.quickloadInstruction) {
+    const autoload = !state.settings || state.settings.autoloadOnLaunch !== false;
+    elements.quickloadInstruction.textContent = autoload
+      ? "Scenario auto-loads once the map is ready"
+      : "Press F9 / Quickload";
+  }
   elements.activatedPill.classList.toggle("hidden", !save.activatedAt);
   renderRequiredMods(save);
   const modProfileStatus = $("#modProfileStatus");
@@ -1254,6 +1275,10 @@ async function choosePreview() {
 
 async function loadSelected(save = selectedSave()) {
   if (!save) return;
+  const autoload = !state.settings || state.settings.autoloadOnLaunch !== false;
+  const followUp = autoload
+    ? "After the map opens, the scenario will auto-load (requires the Quicksave Manager Auto-Load mod enabled)."
+    : "After the map opens, press F9 / Quickload.";
   const confirmed = window.confirm([
     `Load "${save.name}" into Teardown?`,
     "",
@@ -1261,7 +1286,7 @@ async function loadSelected(save = selectedSave()) {
     state.settings ? automaticBackupText(state.settings.backupBeforeLoad, state.settings.loadBackupEvery, "load") : "",
     "",
     `Required map: ${mapName(save)}`,
-    "After the map opens, press F9 / Quickload."
+    followUp
   ].join("\n"));
   if (!confirmed) return;
 
@@ -1281,7 +1306,8 @@ async function saveSettings() {
       loadBackupEvery: elements.loadBackupEveryInput.value,
       backupBeforeUpdate: elements.backupBeforeUpdateInput.value,
       updateBackupEvery: elements.updateBackupEveryInput.value,
-      quicksavePathOverride: elements.quicksavePathInput.value.trim()
+      quicksavePathOverride: elements.quicksavePathInput.value.trim(),
+      autoloadOnLaunch: elements.autoloadOnLaunchInput.checked
     })
   });
   state.settings = settings;
@@ -1314,13 +1340,15 @@ function openSettingsDialog() {
     loadBackupEvery: 5,
     backupBeforeUpdate: "every_n",
     updateBackupEvery: 5,
-    quicksavePathOverride: ""
+    quicksavePathOverride: "",
+    autoloadOnLaunch: true
   };
   elements.backupBeforeLoadInput.value = settings.backupBeforeLoad;
   elements.loadBackupEveryInput.value = settings.loadBackupEvery;
   elements.backupBeforeUpdateInput.value = settings.backupBeforeUpdate;
   elements.updateBackupEveryInput.value = settings.updateBackupEvery;
   elements.quicksavePathInput.value = settings.quicksavePathOverride || "";
+  elements.autoloadOnLaunchInput.checked = settings.autoloadOnLaunch !== false;
   renderQuicksavePathHint();
   updateSettingsFrequencyState();
   fillAboutSection();
