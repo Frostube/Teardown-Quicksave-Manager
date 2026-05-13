@@ -20,15 +20,27 @@
         </div>
 
         <nav class="top-tabs" aria-label="Primary">
-          <button class="top-tab active" id="refreshButton" type="button">
+          <button class="top-tab active" id="refreshButton" type="button" data-tab-view="library">
             <span class="icon icon-folder" aria-hidden="true"></span>
             <span>Library</span>
           </button>
-          <button class="top-tab" id="revealButton" type="button">
+          <button class="top-tab" id="modsTabButton" type="button" data-tab-view="mods">
+            <span class="icon icon-puzzle" aria-hidden="true"></span>
+            <span>Mods</span>
+          </button>
+          <button class="top-tab" id="revealButton" type="button" data-tab-view="backups">
             <span class="icon icon-history" aria-hidden="true"></span>
             <span>Backups</span>
           </button>
-          <button class="top-tab" id="settingsButton" type="button">
+          <button class="top-tab" id="communityTabButton" type="button" data-tab-view="community">
+            <span class="icon icon-globe" aria-hidden="true"></span>
+            <span>Community</span>
+          </button>
+          <button class="top-tab" id="versionsTabButton" type="button" data-tab-view="versions" hidden>
+            <span class="icon icon-hammer" aria-hidden="true"></span>
+            <span>Versions</span>
+          </button>
+          <button class="top-tab" id="settingsButton" type="button" data-tab-view="settings">
             <span class="icon icon-settings" aria-hidden="true"></span>
             <span>Settings</span>
           </button>
@@ -47,153 +59,421 @@
         </div>
       </header>
 
-      <section class="content-grid" aria-label="Scenario Manager">
-        <section class="library-panel panel" aria-label="Save library">
-          <div class="library-toolbar">
-            <label class="search-box" for="searchInput">
-              <span class="icon icon-search" aria-hidden="true"></span>
-              <input id="searchInput" type="search" placeholder="Search scenarios..." autocomplete="off">
-            </label>
-            <div class="filter-group" aria-label="Library filters">
-              <button class="filter-chip" type="button" data-filter="official">
-                <span class="icon icon-library" aria-hidden="true"></span>
-                <span>Library</span>
+      <section class="content-grid" id="contentGrid" aria-label="Scenario Manager">
+        <div class="view view-library" id="libraryView" data-view="library">
+          <section class="library-panel panel" aria-label="Save library">
+            <div class="library-toolbar">
+              <label class="search-box" for="searchInput">
+                <span class="icon icon-search" aria-hidden="true"></span>
+                <input id="searchInput" type="search" placeholder="Search scenarios..." autocomplete="off">
+              </label>
+              <div class="filter-group" aria-label="Library filters">
+                <button class="filter-chip" type="button" data-filter="official">
+                  <span class="icon icon-library" aria-hidden="true"></span>
+                  <span>Library</span>
+                </button>
+                <button class="filter-chip" type="button" data-filter="workshop">
+                  <span class="icon icon-puzzle" aria-hidden="true"></span>
+                  <span>Workshop</span>
+                </button>
+                <button class="filter-chip" type="button" data-filter="legacy">
+                  <span class="icon icon-hammer" aria-hidden="true"></span>
+                  <span>Legacy</span>
+                </button>
+              </div>
+              <button class="add-button" id="importPackageButton" type="button" aria-label="Import scenario package" title="Import .tdqscenario package">
+                <span class="icon icon-archive" aria-hidden="true"></span>
               </button>
-              <button class="filter-chip" type="button" data-filter="workshop">
+              <button class="add-button" id="newSaveButton" type="button" aria-label="Save current quicksave" title="Capture current quicksave">
+                <span class="icon icon-plus" aria-hidden="true"></span>
+              </button>
+            </div>
+
+            <h1 class="panel-title" id="pageTitle">SAVE LIBRARY</h1>
+            <div class="scenario-list" id="saveList" role="listbox" aria-label="Saved quicksaves"></div>
+
+            <footer class="library-footer">
+              <div class="save-count">
+                <span class="icon icon-database" aria-hidden="true"></span>
+                <span id="saveCount">0 saves</span>
+              </div>
+              <div class="storage-location">
+                <span>Storage location:</span>
+                <span id="managerPath"></span>
+                <button class="text-link" id="pathsButton" type="button">Manage Paths</button>
+              </div>
+            </footer>
+          </section>
+
+          <section class="detail-panel panel" id="detailView" aria-label="Selected scenario details">
+            <div class="detail-empty" id="emptyDetail">
+              <span>No scenario selected</span>
+            </div>
+
+            <div class="detail-content hidden" id="detailContent">
+              <div class="detail-hero-card">
+                <div class="preview-frame">
+                  <div class="scenario-hero scene-0" id="detailHero" aria-hidden="true"></div>
+                  <button class="preview-upload-button" id="uploadPreviewButton" type="button">Upload Preview</button>
+                </div>
+                <div class="detail-heading">
+                  <h3 id="detailName"></h3>
+                  <span class="active-pill hidden" id="activatedPill">Last activated</span>
+                </div>
+              </div>
+
+              <section class="detail-card" id="statsCard" aria-labelledby="statsCardTitle">
+                <header class="detail-card-header">
+                  <h4 id="statsCardTitle">SCENARIO</h4>
+                </header>
+                <dl class="detail-stats">
+                  <div>
+                    <dt>Required map:</dt>
+                    <dd id="detailMap"></dd>
+                  </div>
+                  <div>
+                    <dt>Teardown ver.:</dt>
+                    <dd id="detailVersion"></dd>
+                  </div>
+                  <div>
+                    <dt>Map type:</dt>
+                    <dd id="detailMapType"></dd>
+                  </div>
+                  <div>
+                    <dt>File size:</dt>
+                    <dd id="detailSize"></dd>
+                  </div>
+                  <div>
+                    <dt>Compatibility:</dt>
+                    <dd id="detailCompatibility"></dd>
+                  </div>
+                  <div>
+                    <dt>Created:</dt>
+                    <dd id="detailCreated"></dd>
+                  </div>
+                </dl>
+              </section>
+
+              <section class="detail-card" id="compatibilityCard" aria-labelledby="compatCardTitle">
+                <header class="detail-card-header collapsible" data-target="compatibilityBody">
+                  <h4 id="compatCardTitle">COMPATIBILITY</h4>
+                  <span class="card-status" id="compatCardStatus">Untested</span>
+                  <button class="card-collapse" type="button" aria-expanded="true" aria-controls="compatibilityBody" title="Collapse"><span class="caret"></span></button>
+                </header>
+                <div class="detail-card-body" id="compatibilityBody">
+                  <p class="detail-card-hint" id="compatibilityHint">Compatibility status based on this scenario's map type.</p>
+                  <div class="phase-stub" data-phase="6">
+                    <span class="phase-tag">v0.6</span>
+                    <span>Tested versions, working/broken reports, and "Teardown updated" warnings land in Phase 6.</span>
+                  </div>
+                </div>
+              </section>
+
+              <section class="detail-card" id="modProfileCard" aria-labelledby="modProfileCardTitle">
+                <header class="detail-card-header collapsible" data-target="modProfileBody">
+                  <h4 id="modProfileCardTitle">MOD PROFILE</h4>
+                  <span class="card-status" id="modProfileStatus">Not captured</span>
+                  <button class="card-collapse" type="button" aria-expanded="true" aria-controls="modProfileBody" title="Collapse"><span class="caret"></span></button>
+                </header>
+                <div class="detail-card-body" id="modProfileBody">
+                  <p id="modsSource" class="mods-source">
+                    <span class="mods-source-profile">No mod snapshot captured.</span>
+                    <span class="mods-source-date hidden"></span>
+                  </p>
+                  <strong id="detailModsSummary" class="mods-summary">Not captured</strong>
+                  <div class="mods-toolbar">
+                    <button class="ghost-button compact" id="captureModsButton" type="button">Capture Current Mods</button>
+                    <button class="ghost-button compact" id="linkProfileButton" type="button">Link Profile&hellip;</button>
+                    <button class="ghost-button compact" id="compareModsButton" type="button">Compare Mods</button>
+                    <button class="ghost-button compact" id="copyModLinksButton" type="button">Copy Workshop Links</button>
+                    <button class="ghost-button compact mods-toggle" id="modsToggleButton" type="button" aria-expanded="false" aria-controls="modsExpand">Show Mods</button>
+                  </div>
+                  <div class="mods-expand hidden" id="modsExpand">
+                    <label class="modlist-compare-field">
+                      <span>Current Teardown mod profile</span>
+                      <select id="modlistSelect" aria-label="Current Teardown mod profile"></select>
+                    </label>
+                    <div class="mods-list" id="requiredModsList"></div>
+                  </div>
+                </div>
+              </section>
+
+              <section class="detail-card" id="buildProfileCard" aria-labelledby="buildProfileCardTitle" hidden>
+                <header class="detail-card-header collapsible" data-target="buildProfileBody">
+                  <h4 id="buildProfileCardTitle">REQUIRED BUILD</h4>
+                  <span class="card-status" id="buildProfileStatus">None</span>
+                  <button class="card-collapse" type="button" aria-expanded="true" aria-controls="buildProfileBody" title="Collapse"><span class="caret"></span></button>
+                </header>
+                <div class="detail-card-body" id="buildProfileBody">
+                  <p class="detail-card-hint">This scenario was created on a specific Teardown build. Phase 9 surfaces required builds and lets you install matching versions.</p>
+                  <div class="phase-stub" data-phase="9">
+                    <span class="phase-tag">v0.9</span>
+                    <span>Legacy build profiles arrive in Phase 9.</span>
+                  </div>
+                </div>
+              </section>
+
+              <section class="detail-card" id="notesCard" aria-labelledby="notesCardTitle">
+                <header class="detail-card-header">
+                  <h4 id="notesCardTitle">NOTES</h4>
+                </header>
+                <div class="detail-card-body">
+                  <p id="detailNotes" class="detail-notes-body">No notes.</p>
+                </div>
+              </section>
+
+              <section class="instructions-box" aria-label="Instructions">
+                <div class="instruction-title">
+                  <span class="icon icon-circle-alert" aria-hidden="true"></span>
+                  <span>INSTRUCTIONS</span>
+                </div>
+                <ol>
+                  <li>Load &amp; Launch Teardown</li>
+                  <li id="detailInstruction"></li>
+                  <li>Press F9 / Quickload</li>
+                </ol>
+              </section>
+
+              <div class="detail-actions">
+                <button class="primary-button" id="activateButton" type="button">
+                  <span class="icon icon-package-2" aria-hidden="true"></span>
+                  <span>Load & Launch Teardown</span>
+                </button>
+                <div class="detail-action-grid">
+                  <button class="ghost-button" id="copyPathButton" type="button">
+                    <span class="icon icon-folder" aria-hidden="true"></span>
+                    <span>Open Folder</span>
+                  </button>
+                  <button class="ghost-button" id="exportButton" type="button">
+                    <span class="icon icon-archive" aria-hidden="true"></span>
+                    <span>Export</span>
+                  </button>
+                  <button class="ghost-button" id="updateButton" type="button">
+                    <span class="icon icon-pencil" aria-hidden="true"></span>
+                    <span>Edit</span>
+                  </button>
+                  <button class="danger-button" id="deleteButton" type="button">
+                    <span class="icon icon-trash-2" aria-hidden="true"></span>
+                    <span>Delete</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <div class="view view-mods" id="modsView" data-view="mods" hidden>
+          <section class="library-panel panel" aria-label="Mod profile list">
+            <div class="library-toolbar mods-toolbar-row">
+              <label class="search-box" for="modProfileSearch">
+                <span class="icon icon-search" aria-hidden="true"></span>
+                <input id="modProfileSearch" type="search" placeholder="Search profiles..." autocomplete="off">
+              </label>
+              <button class="add-button" id="newModProfileButton" type="button" aria-label="New mod profile" title="New mod profile">
+                <span class="icon icon-plus" aria-hidden="true"></span>
+              </button>
+            </div>
+            <h1 class="panel-title">MOD PROFILES</h1>
+            <div class="scenario-list" id="modProfileList" role="listbox" aria-label="Mod profiles"></div>
+            <footer class="library-footer">
+              <div class="save-count">
                 <span class="icon icon-puzzle" aria-hidden="true"></span>
-                <span>Workshop</span>
-              </button>
-              <button class="filter-chip" type="button" data-filter="legacy">
-                <span class="icon icon-hammer" aria-hidden="true"></span>
-                <span>Legacy</span>
-              </button>
+                <span id="modProfileCount">0 profiles</span>
+              </div>
+              <div class="storage-location">
+                <span>Active Teardown modlist:</span>
+                <span id="modsActiveModlist">-</span>
+              </div>
+            </footer>
+          </section>
+          <section class="detail-panel panel" id="modProfileDetailView" aria-label="Mod profile detail">
+            <div class="detail-empty" id="modProfileEmpty">
+              <span>No profile selected</span>
             </div>
-            <button class="add-button" id="newSaveButton" type="button" aria-label="Save current quicksave">
-              <span class="icon icon-plus" aria-hidden="true"></span>
-            </button>
-          </div>
+            <div class="detail-content hidden" id="modProfileDetail">
+              <div class="detail-hero-card">
+                <div class="detail-heading">
+                  <h3 id="modProfileName"></h3>
+                  <span class="active-pill hidden" id="modProfileLinkedPill">Linked to scenarios</span>
+                </div>
+              </div>
 
-          <h1 class="panel-title" id="pageTitle">SAVE LIBRARY</h1>
-          <div class="scenario-list" id="saveList" role="listbox" aria-label="Saved quicksaves"></div>
+              <section class="detail-card">
+                <header class="detail-card-header">
+                  <h4>PROFILE</h4>
+                  <span class="card-status" id="modProfileSummary">0/0 active</span>
+                </header>
+                <div class="detail-card-body">
+                  <dl class="detail-stats">
+                    <div>
+                      <dt>Mod count:</dt>
+                      <dd id="modProfileModCount">-</dd>
+                    </div>
+                    <div>
+                      <dt>Created:</dt>
+                      <dd id="modProfileCreated">-</dd>
+                    </div>
+                    <div>
+                      <dt>Source modlist:</dt>
+                      <dd id="modProfileSource">-</dd>
+                    </div>
+                    <div>
+                      <dt>Updated:</dt>
+                      <dd id="modProfileUpdated">-</dd>
+                    </div>
+                  </dl>
+                </div>
+              </section>
 
-          <footer class="library-footer">
-            <div class="save-count">
-              <span class="icon icon-database" aria-hidden="true"></span>
-              <span id="saveCount">0 saves</span>
+              <section class="detail-card">
+                <header class="detail-card-header">
+                  <h4>MODS</h4>
+                  <label class="modlist-compare-field compact-inline">
+                    <span>Compare against</span>
+                    <select id="modProfileCompareSelect" aria-label="Compare against modlist"></select>
+                  </label>
+                </header>
+                <div class="detail-card-body">
+                  <div class="mods-list large" id="modProfileModsList"></div>
+                </div>
+              </section>
+
+              <section class="detail-card">
+                <header class="detail-card-header">
+                  <h4>NOTES</h4>
+                </header>
+                <div class="detail-card-body">
+                  <p id="modProfileNotes" class="detail-notes-body">No notes.</p>
+                </div>
+              </section>
+
+              <div class="phase-stub" data-phase="3">
+                <span class="phase-tag">v0.3B</span>
+                <span>Applying a profile (writing it to Teardown's modlists/*.xml) lands in Phase 3B after backups and write-safety testing.</span>
+              </div>
+
+              <div class="detail-actions">
+                <button class="primary-button" id="modProfileApplyButton" type="button" disabled title="Apply profile (v0.3B)">
+                  <span class="icon icon-package-2" aria-hidden="true"></span>
+                  <span>Apply Profile (v0.3B)</span>
+                </button>
+                <div class="detail-action-grid">
+                  <button class="ghost-button" id="modProfileRecaptureButton" type="button">
+                    <span class="icon icon-history" aria-hidden="true"></span>
+                    <span>Re-capture</span>
+                  </button>
+                  <button class="ghost-button" id="modProfileCopyLinksButton" type="button">
+                    <span class="icon icon-globe" aria-hidden="true"></span>
+                    <span>Copy Links</span>
+                  </button>
+                  <button class="ghost-button" id="modProfileEditButton" type="button">
+                    <span class="icon icon-pencil" aria-hidden="true"></span>
+                    <span>Edit</span>
+                  </button>
+                  <button class="danger-button" id="modProfileDeleteButton" type="button">
+                    <span class="icon icon-trash-2" aria-hidden="true"></span>
+                    <span>Delete</span>
+                  </button>
+                </div>
+              </div>
             </div>
-            <div class="storage-location">
-              <span>Storage location:</span>
-              <span id="managerPath"></span>
-              <button class="text-link" id="pathsButton" type="button">Manage Paths</button>
-            </div>
-          </footer>
-        </section>
+          </section>
+        </div>
 
-        <section class="detail-panel panel" id="detailView" aria-label="Selected scenario details">
-          <div class="detail-empty" id="emptyDetail">
-            <span>No scenario selected</span>
-          </div>
-
-          <div class="detail-content hidden" id="detailContent">
-            <h2 class="panel-title">SELECTED SCENARIO</h2>
-            <div class="preview-frame">
-              <div class="scenario-hero scene-0" id="detailHero" aria-hidden="true"></div>
-              <button class="preview-upload-button" id="uploadPreviewButton" type="button">Upload Preview</button>
-            </div>
-            <div class="detail-heading">
-              <h3 id="detailName"></h3>
-              <span class="active-pill hidden" id="activatedPill">Last activated</span>
-            </div>
-
-            <dl class="detail-stats">
-              <div>
-                <dt>Required map:</dt>
-                <dd id="detailMap"></dd>
-              </div>
-              <div>
-                <dt>Teardown ver.:</dt>
-                <dd id="detailVersion"></dd>
-              </div>
-              <div>
-                <dt>Map type:</dt>
-                <dd id="detailMapType"></dd>
-              </div>
-              <div>
-                <dt>File size:</dt>
-                <dd id="detailSize"></dd>
-              </div>
-              <div>
-                <dt>Compatibility:</dt>
-                <dd id="detailCompatibility"></dd>
-              </div>
-              <div>
-                <dt>Created:</dt>
-                <dd id="detailCreated"></dd>
-              </div>
-              <div class="wide">
-                <dt>Notes:</dt>
-                <dd id="detailNotes"></dd>
-              </div>
-            </dl>
-
-            <section class="mods-panel" aria-label="Captured mod profile">
-              <div class="mods-panel-header">
-                <h4>CAPTURED MOD PROFILE</h4>
-              </div>
-              <p id="modsSource" class="mods-source">
-                <span class="mods-source-profile">No mod snapshot captured.</span>
-                <span class="mods-source-date hidden"></span>
-              </p>
-              <strong id="detailModsSummary" class="mods-summary">Not captured</strong>
-              <div class="mods-toolbar">
-                <button class="ghost-button compact" id="captureModsButton" type="button">Capture Current Mods</button>
-                <button class="ghost-button compact" id="compareModsButton" type="button">Compare Mods</button>
-                <button class="ghost-button compact" id="copyModLinksButton" type="button">Copy Workshop Links</button>
-                <button class="ghost-button compact mods-toggle" id="modsToggleButton" type="button" aria-expanded="false" aria-controls="modsExpand">Show Mods</button>
-              </div>
-              <div class="mods-expand hidden" id="modsExpand">
-                <label class="modlist-compare-field">
-                  <span>Current Teardown mod profile</span>
-                  <select id="modlistSelect" aria-label="Current Teardown mod profile"></select>
-                </label>
-                <div class="mods-list" id="requiredModsList"></div>
-              </div>
-            </section>
-
-            <section class="instructions-box" aria-label="Instructions">
-              <div class="instruction-title">
-                <span class="icon icon-circle-alert" aria-hidden="true"></span>
-                <span>INSTRUCTIONS</span>
-              </div>
-              <ol>
-                <li>Load &amp; Launch Teardown</li>
-                <li id="detailInstruction"></li>
-                <li>Press F9 / Quickload</li>
-              </ol>
-            </section>
-
-            <div class="detail-actions">
-              <button class="primary-button" id="activateButton" type="button">
-                <span class="icon icon-package-2" aria-hidden="true"></span>
-                <span>Load & Launch Teardown</span>
-              </button>
-              <div class="detail-action-grid">
-                <button class="ghost-button" id="copyPathButton" type="button">
+        <div class="view view-backups" id="backupsViewContainer" data-view="backups" hidden>
+          <section class="panel panel-wide" id="backupsView" aria-label="Backups">
+            <div class="backups-header">
+              <h2 class="panel-title">BACKUPS</h2>
+              <div class="backups-actions">
+                <button class="ghost-button compact" id="backupNowButton" type="button">
+                  <span class="icon icon-history" aria-hidden="true"></span>
+                  <span>Back up active</span>
+                </button>
+                <button class="ghost-button compact" id="openBackupsFolderButton" type="button">
                   <span class="icon icon-folder" aria-hidden="true"></span>
                   <span>Open Folder</span>
                 </button>
-                <button class="ghost-button" id="updateButton" type="button">
-                  <span class="icon icon-pencil" aria-hidden="true"></span>
-                  <span>Edit</span>
-                </button>
-                <button class="danger-button" id="deleteButton" type="button">
-                  <span class="icon icon-trash-2" aria-hidden="true"></span>
-                  <span>Delete</span>
-                </button>
               </div>
             </div>
-          </div>
-        </section>
+            <p class="backups-note">Restoring a backup overwrites the current <strong>quicksave.bin</strong>. A safety backup of the current file is created automatically first.</p>
+            <div class="backups-list" id="backupsList" role="list"></div>
+            <div class="backups-empty hidden" id="backupsEmpty">No backups stored yet.</div>
+          </section>
+        </div>
+
+        <div class="view view-community" id="communityViewContainer" data-view="community" hidden>
+          <section class="library-panel panel" aria-label="Community scenarios">
+            <div class="library-toolbar">
+              <label class="search-box" for="communitySearch">
+                <span class="icon icon-search" aria-hidden="true"></span>
+                <input id="communitySearch" type="search" placeholder="Search community scenarios..." autocomplete="off" disabled>
+              </label>
+              <div class="filter-group" aria-label="Community filters">
+                <button class="filter-chip" type="button" disabled><span class="icon icon-circle-check" aria-hidden="true"></span><span>Verified</span></button>
+                <button class="filter-chip" type="button" disabled><span class="icon icon-puzzle" aria-hidden="true"></span><span>Workshop</span></button>
+                <button class="filter-chip" type="button" disabled><span class="icon icon-hammer" aria-hidden="true"></span><span>Legacy</span></button>
+              </div>
+              <button class="add-button" type="button" title="Refresh community index (v0.5)" disabled>
+                <span class="icon icon-history" aria-hidden="true"></span>
+              </button>
+            </div>
+            <h1 class="panel-title">COMMUNITY</h1>
+            <div class="scenario-list" id="communityList" role="listbox"></div>
+            <footer class="library-footer">
+              <span class="save-count"><span class="icon icon-globe" aria-hidden="true"></span><span id="communityCount">No index loaded</span></span>
+              <button class="text-link" type="button" disabled>Submit a scenario</button>
+            </footer>
+          </section>
+          <section class="detail-panel panel" aria-label="Community scenario detail">
+            <div class="placeholder-card phase-card" data-phase="5">
+              <span class="phase-tag big">Coming in v0.5</span>
+              <h2>Community Scenarios</h2>
+              <p>Browse and download <code>.tdqscenario</code> packages shared by other players. Static-index hosted on GitHub Pages to start; submissions reviewed manually.</p>
+              <ul class="phase-features">
+                <li><span class="dot"></span>Static community index (read-only at first)</li>
+                <li><span class="dot"></span>Verified SHA-256 downloads</li>
+                <li><span class="dot"></span>Tag and version filters</li>
+                <li><span class="dot"></span>Required map / mods preview before download</li>
+                <li><span class="dot"></span>Manual submission queue via GitHub</li>
+              </ul>
+              <p class="phase-foot">Phase 2's <code>.tdqscenario</code> package format is already done — exports made today will be sharable when this lands.</p>
+            </div>
+          </section>
+        </div>
+
+        <div class="view view-versions" id="versionsViewContainer" data-view="versions" hidden>
+          <section class="library-panel panel" aria-label="Build profiles">
+            <div class="library-toolbar mods-toolbar-row">
+              <label class="search-box" for="buildProfileSearch">
+                <span class="icon icon-search" aria-hidden="true"></span>
+                <input id="buildProfileSearch" type="search" placeholder="Search build profiles..." autocomplete="off" disabled>
+              </label>
+              <button class="add-button" type="button" title="New build profile (v0.9)" disabled>
+                <span class="icon icon-plus" aria-hidden="true"></span>
+              </button>
+            </div>
+            <h1 class="panel-title">BUILD VERSIONS</h1>
+            <div class="scenario-list" id="buildProfileList"></div>
+            <footer class="library-footer">
+              <span class="save-count"><span class="icon icon-hammer" aria-hidden="true"></span><span id="buildProfileCount">0 profiles</span></span>
+            </footer>
+          </section>
+          <section class="detail-panel panel" aria-label="Build profile detail">
+            <div class="placeholder-card phase-card" data-phase="9">
+              <span class="phase-tag big">Coming in v0.9</span>
+              <h2>Teardown Version Manager</h2>
+              <p>Store metadata about specific Teardown builds you own and link scenarios to a required version. The manager won't host or distribute game files — it manages local profile folders and Steam depot references.</p>
+              <ul class="phase-features">
+                <li><span class="dot"></span>Define build profiles (Legacy 1.5.x, current, etc.)</li>
+                <li><span class="dot"></span>Reference AppID / DepotID / ManifestID</li>
+                <li><span class="dot"></span>Generate Steam console / depot commands</li>
+                <li><span class="dot"></span>Warn when a scenario's required profile is missing</li>
+                <li><span class="dot"></span>Never asks for Steam credentials in MVP</li>
+              </ul>
+              <p class="phase-foot">Disabled by default. Enable from Settings &rarr; Versions when Phase 9 lands.</p>
+            </div>
+          </section>
+        </div>
       </section>
 
       <footer class="bottom-status">
@@ -294,36 +574,181 @@
     </dialog>
 
     <dialog id="settingsDialog">
-      <form method="dialog" class="dialog-card">
-        <h2>Settings</h2>
-        <label class="field">
-          <span>Automatic backup before Load</span>
-          <select id="backupBeforeLoadInput">
-            <option value="every_n">Every N loads</option>
-            <option value="always">Every load</option>
-            <option value="never">Never</option>
-          </select>
-        </label>
-        <label class="field">
-          <span>Load backup frequency</span>
-          <input id="loadBackupEveryInput" type="number" min="2" max="50" step="1">
-        </label>
-        <label class="field">
-          <span>Automatic backup before Update Slot</span>
-          <select id="backupBeforeUpdateInput">
-            <option value="every_n">Every N updates</option>
-            <option value="always">Every update</option>
-            <option value="never">Never</option>
-          </select>
-        </label>
-        <label class="field">
-          <span>Update backup frequency</span>
-          <input id="updateBackupEveryInput" type="number" min="2" max="50" step="1">
-        </label>
-        <p class="dialog-note">These settings control automatic backups made during Load and Update Slot.</p>
-        <div class="action-row">
+      <form method="dialog" class="dialog-card settings-card">
+        <header class="settings-header">
+          <h2>Settings</h2>
+        </header>
+        <div class="settings-body">
+          <nav class="settings-nav" aria-label="Settings sections">
+            <button type="button" class="settings-nav-item active" data-settings-section="general">General</button>
+            <button type="button" class="settings-nav-item" data-settings-section="backups">Backups</button>
+            <button type="button" class="settings-nav-item" data-settings-section="mods">Mods</button>
+            <button type="button" class="settings-nav-item" data-settings-section="launch">Launch flow</button>
+            <button type="button" class="settings-nav-item" data-settings-section="community">Community</button>
+            <button type="button" class="settings-nav-item" data-settings-section="versions">Versions</button>
+            <button type="button" class="settings-nav-item" data-settings-section="about">About</button>
+          </nav>
+
+          <div class="settings-sections">
+            <section class="settings-section active" data-settings-section="general">
+              <h3>General</h3>
+              <div class="field">
+                <span>Teardown quicksave path</span>
+                <div class="path-field">
+                  <input id="quicksavePathInput" type="text" placeholder="C:\Users\You\AppData\Local\Teardown\quicksave.bin">
+                  <button class="ghost-button compact" id="quicksavePathBrowseButton" type="button">Browse</button>
+                  <button class="ghost-button compact" id="quicksavePathResetButton" type="button" title="Use auto-detected path">Auto</button>
+                </div>
+                <small class="field-hint" id="quicksavePathHint"></small>
+              </div>
+            </section>
+
+            <section class="settings-section" data-settings-section="backups">
+              <h3>Backups</h3>
+              <label class="field">
+                <span>Automatic backup before Load</span>
+                <select id="backupBeforeLoadInput">
+                  <option value="every_n">Every N loads</option>
+                  <option value="always">Every load</option>
+                  <option value="never">Never</option>
+                </select>
+              </label>
+              <label class="field">
+                <span>Load backup frequency</span>
+                <input id="loadBackupEveryInput" type="number" min="2" max="50" step="1">
+              </label>
+              <label class="field">
+                <span>Automatic backup before Update Slot</span>
+                <select id="backupBeforeUpdateInput">
+                  <option value="every_n">Every N updates</option>
+                  <option value="always">Every update</option>
+                  <option value="never">Never</option>
+                </select>
+              </label>
+              <label class="field">
+                <span>Update backup frequency</span>
+                <input id="updateBackupEveryInput" type="number" min="2" max="50" step="1">
+              </label>
+              <p class="dialog-note">Automatic backups protect your current quicksave during Load and Update Slot.</p>
+            </section>
+
+            <section class="settings-section" data-settings-section="mods">
+              <h3>Mods</h3>
+              <div class="phase-stub" data-phase="3">
+                <span class="phase-tag">v0.3</span>
+                <span>Mod profile settings (default profile, apply confirmation, mod-folder paths) arrive in Phase 3.</span>
+              </div>
+            </section>
+
+            <section class="settings-section" data-settings-section="launch">
+              <h3>Launch flow</h3>
+              <div class="phase-stub" data-phase="4">
+                <span class="phase-tag">v0.4</span>
+                <span>Companion-mod toggles, quickload automation, and per-scenario load instructions are part of Phase 4.</span>
+              </div>
+            </section>
+
+            <section class="settings-section" data-settings-section="community">
+              <h3>Community</h3>
+              <div class="phase-stub" data-phase="5">
+                <span class="phase-tag">v0.5</span>
+                <span>Community index URL, hash verification mode, and submission preferences arrive in Phase 5.</span>
+              </div>
+            </section>
+
+            <section class="settings-section" data-settings-section="versions">
+              <h3>Build versions</h3>
+              <label class="field checkbox-field">
+                <input id="enableVersionsTabInput" type="checkbox" disabled>
+                <span>Show <strong>Versions</strong> tab (v0.9 build profile manager)</span>
+              </label>
+              <p class="dialog-note">Will be enabled in Phase 9. The build manager never distributes or downloads game files.</p>
+            </section>
+
+            <section class="settings-section" data-settings-section="about">
+              <h3>About</h3>
+              <dl class="about-list">
+                <div><dt>Manager version</dt><dd id="aboutAppVersion">0.1.0</dd></div>
+                <div><dt>Manager schema</dt><dd id="aboutSchemaVersion">1</dd></div>
+                <div><dt>Teardown version</dt><dd id="aboutTeardownVersion">-</dd></div>
+                <div><dt>Manager root</dt><dd id="aboutManagerRoot">-</dd></div>
+                <div><dt>Log file</dt><dd id="aboutLogPath">-</dd></div>
+              </dl>
+              <p class="dialog-note">Community-made tool. Not affiliated with Tuxedo Labs, Saber Interactive, Steam, or Valve.</p>
+              <div class="action-row" style="justify-content: flex-start; margin-top: 8px;">
+                <button class="ghost-button compact" id="openLogFileButton" type="button">Open log file</button>
+                <button class="ghost-button compact" id="openManagerRootButton" type="button">Open manager folder</button>
+              </div>
+            </section>
+          </div>
+        </div>
+        <footer class="action-row settings-footer">
           <button class="primary-button" id="confirmSettingsButton" value="confirm" type="submit">Save Settings</button>
           <button class="ghost-button" value="cancel" type="submit">Cancel</button>
+        </footer>
+      </form>
+    </dialog>
+
+    <dialog id="modProfileDialog">
+      <form method="dialog" class="dialog-card">
+        <h2 id="modProfileDialogTitle">New Mod Profile</h2>
+        <label class="field">
+          <span>Name</span>
+          <input id="modProfileNameInput" type="text" maxlength="80" placeholder="Destruction Tools">
+        </label>
+        <label class="field" id="modProfileSourceField">
+          <span>Capture from Teardown modlist</span>
+          <select id="modProfileSourceInput"></select>
+        </label>
+        <p class="dialog-note" id="modProfileSourceHint">Mods active in this Teardown modlist are stored in the new profile. Re-capture later to refresh.</p>
+        <label class="field">
+          <span>Notes</span>
+          <textarea id="modProfileNotesInput" rows="3" maxlength="600" placeholder="Optional"></textarea>
+        </label>
+        <div class="action-row">
+          <button class="primary-button" id="confirmModProfileButton" value="confirm" type="submit">Save Profile</button>
+          <button class="ghost-button" value="cancel" type="submit">Cancel</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="linkProfileDialog">
+      <form method="dialog" class="dialog-card">
+        <h2>Link Mod Profile</h2>
+        <p class="dialog-note">Linking a profile replaces this scenario's mod snapshot. The Mods card will compare against the linked profile.</p>
+        <label class="field">
+          <span>Mod profile</span>
+          <select id="linkProfileSelect">
+            <option value="">(none — clear linkage)</option>
+          </select>
+        </label>
+        <div class="action-row">
+          <button class="primary-button" id="confirmLinkProfileButton" value="confirm" type="submit">Save</button>
+          <button class="ghost-button" id="newProfileFromLinkButton" type="button">New profile&hellip;</button>
+          <button class="ghost-button" value="cancel" type="submit">Cancel</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="setupDialog">
+      <form method="dialog" class="dialog-card">
+        <h2>Locate Teardown quicksave</h2>
+        <p class="dialog-note">The manager couldn't find <strong>quicksave.bin</strong> at any default location. Tell it where Teardown stores yours, or launch Teardown once to create it.</p>
+        <div class="field">
+          <span>Candidate paths</span>
+          <div class="candidate-list" id="setupCandidateList"></div>
+        </div>
+        <div class="field">
+          <span>Custom path</span>
+          <div class="path-field">
+            <input id="setupQuicksavePathInput" type="text" placeholder="C:\Users\You\AppData\Local\Teardown\quicksave.bin">
+            <button class="ghost-button compact" id="setupBrowseButton" type="button">Browse</button>
+          </div>
+        </div>
+        <div class="action-row">
+          <button class="primary-button" id="confirmSetupButton" value="confirm" type="submit">Save Path</button>
+          <button class="ghost-button" id="setupRecheckButton" type="button">Re-check</button>
+          <button class="ghost-button" value="cancel" type="submit">Close</button>
         </div>
       </form>
     </dialog>

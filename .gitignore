@@ -16,6 +16,7 @@ deleted/
 
 # Local editor/system files
 .vscode/
+.claude/
 .DS_Store
 Thumbs.db
 npm-debug.log*

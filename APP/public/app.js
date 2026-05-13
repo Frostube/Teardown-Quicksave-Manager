@@ -5,7 +5,18 @@ const state = {
   modInventory: null,
   selectedId: null,
   query: "",
-  filter: "all"
+  filter: "all",
+  view: "library",
+  backups: [],
+  backupsLoaded: false,
+  setupVisible: false,
+  modProfiles: [],
+  modProfileDetails: new Map(),
+  selectedModProfileId: null,
+  modProfilesLoaded: false,
+  modProfileQuery: "",
+  modProfileDialogMode: "create",
+  modProfileDialogId: null
 };
 
 const $ = (selector) => document.querySelector(selector);
@@ -66,7 +77,59 @@ const elements = {
   infoTitle: $("#infoTitle"),
   infoText: $("#infoText"),
   pathActions: $(".path-actions"),
-  toast: $("#toast")
+  toast: $("#toast"),
+  importPackageButton: $("#importPackageButton"),
+  exportButton: $("#exportButton"),
+  backupsView: $("#backupsView"),
+  backupsList: $("#backupsList"),
+  backupsEmpty: $("#backupsEmpty"),
+  backupNowButton: $("#backupNowButton"),
+  openBackupsFolderButton: $("#openBackupsFolderButton"),
+  quicksavePathInput: $("#quicksavePathInput"),
+  quicksavePathBrowseButton: $("#quicksavePathBrowseButton"),
+  quicksavePathResetButton: $("#quicksavePathResetButton"),
+  quicksavePathHint: $("#quicksavePathHint"),
+  setupDialog: $("#setupDialog"),
+  setupCandidateList: $("#setupCandidateList"),
+  setupQuicksavePathInput: $("#setupQuicksavePathInput"),
+  setupBrowseButton: $("#setupBrowseButton"),
+  setupRecheckButton: $("#setupRecheckButton"),
+  confirmSetupButton: $("#confirmSetupButton"),
+  modProfileSearch: $("#modProfileSearch"),
+  newModProfileButton: $("#newModProfileButton"),
+  modProfileList: $("#modProfileList"),
+  modProfileCount: $("#modProfileCount"),
+  modsActiveModlist: $("#modsActiveModlist"),
+  modProfileEmpty: $("#modProfileEmpty"),
+  modProfileDetail: $("#modProfileDetail"),
+  modProfileName: $("#modProfileName"),
+  modProfileLinkedPill: $("#modProfileLinkedPill"),
+  modProfileSummary: $("#modProfileSummary"),
+  modProfileModCount: $("#modProfileModCount"),
+  modProfileCreated: $("#modProfileCreated"),
+  modProfileSource: $("#modProfileSource"),
+  modProfileUpdated: $("#modProfileUpdated"),
+  modProfileCompareSelect: $("#modProfileCompareSelect"),
+  modProfileModsList: $("#modProfileModsList"),
+  modProfileNotes: $("#modProfileNotes"),
+  modProfileApplyButton: $("#modProfileApplyButton"),
+  modProfileRecaptureButton: $("#modProfileRecaptureButton"),
+  modProfileCopyLinksButton: $("#modProfileCopyLinksButton"),
+  modProfileEditButton: $("#modProfileEditButton"),
+  modProfileDeleteButton: $("#modProfileDeleteButton"),
+  modProfileDialog: $("#modProfileDialog"),
+  modProfileDialogTitle: $("#modProfileDialogTitle"),
+  modProfileNameInput: $("#modProfileNameInput"),
+  modProfileSourceField: $("#modProfileSourceField"),
+  modProfileSourceInput: $("#modProfileSourceInput"),
+  modProfileSourceHint: $("#modProfileSourceHint"),
+  modProfileNotesInput: $("#modProfileNotesInput"),
+  confirmModProfileButton: $("#confirmModProfileButton"),
+  linkProfileButton: $("#linkProfileButton"),
+  linkProfileDialog: $("#linkProfileDialog"),
+  linkProfileSelect: $("#linkProfileSelect"),
+  confirmLinkProfileButton: $("#confirmLinkProfileButton"),
+  newProfileFromLinkButton: $("#newProfileFromLinkButton")
 };
 
 const iconStar = `<span class="icon icon-star" aria-hidden="true"></span>`;
@@ -313,10 +376,21 @@ function selectedSave() {
   return state.saves.find((save) => save.id === state.selectedId) || null;
 }
 
-function setActiveTopTab(buttonId) {
+function setActiveTopTab(buttonId, viewOverride) {
   elements.topTabs.forEach((button) => {
     button.classList.toggle("active", button.id === buttonId);
   });
+  if (viewOverride) state.view = viewOverride;
+}
+
+function switchTab(viewName) {
+  const tab = elements.topTabs.find((button) => button.dataset.tabView === viewName);
+  if (tab) setActiveTopTab(tab.id, viewName);
+  else state.view = viewName;
+  render();
+  if (viewName === "backups") {
+    refreshBackups().then(render).catch((error) => showToast(error.message));
+  }
 }
 
 function filteredSaves() {
@@ -407,9 +481,65 @@ function renderModsSource(profileText, dateText) {
 function renderRequiredMods(save) {
   const selectedModlistId = currentModlistId();
   populateModlistSelect(elements.modlistSelect, selectedModlistId);
+  elements.requiredModsList.replaceChildren();
+
+  const linkedProfileId = save.modProfileId;
+  const linkedProfile = linkedProfileId ? state.modProfileDetails.get(linkedProfileId) : null;
+
+  if (linkedProfile) {
+    const summary = summarizeProfileMods(linkedProfile, elements.modlistSelect.value);
+    elements.detailModsSummary.textContent = `${summary.active}/${summary.total} currently active`;
+    renderModsSource(`Linked profile: ${linkedProfile.name}`, `Updated: ${formatDate(linkedProfile.updatedAt)}`);
+    elements.modsToggleButton.disabled = !linkedProfile.mods.length;
+
+    if (!linkedProfile.mods.length) {
+      const empty = document.createElement("div");
+      empty.className = "mod-row";
+      empty.textContent = "Linked profile has no mods. Open the Mods tab to capture from a Teardown modlist.";
+      elements.requiredModsList.append(empty);
+      return;
+    }
+
+    const activeIds = activeModSet(elements.modlistSelect.value);
+    const knownMods = modsMap();
+    linkedProfile.mods.forEach((mod) => {
+      const current = knownMods.get(mod.id) || mod;
+      const status = modStatusForProfileMod(mod, activeIds, knownMods);
+      const row = document.createElement("div");
+      row.className = "mod-row";
+
+      const main = document.createElement("div");
+      main.className = "mod-main";
+      const label = document.createElement(current.link ? "a" : "span");
+      label.textContent = current.name || mod.name || mod.id;
+      if (current.link) {
+        label.href = current.link;
+        label.target = "_blank";
+        label.rel = "noreferrer";
+      }
+      const meta = document.createElement("div");
+      meta.className = "mod-meta";
+      meta.textContent = `${current.kind || mod.kind || "mod"} - ${mod.id}`;
+      main.append(label, meta);
+
+      const badge = document.createElement("span");
+      badge.className = `mod-status ${status.tone}`;
+      badge.textContent = status.label;
+      row.append(main, badge);
+      elements.requiredModsList.append(row);
+    });
+    return;
+  }
+
+  if (linkedProfileId && !linkedProfile) {
+    elements.detailModsSummary.textContent = "Loading linked profile...";
+    renderModsSource(`Linked profile: ${linkedProfileId}`, "");
+    elements.modsToggleButton.disabled = true;
+    return;
+  }
+
   const captured = save.requiredMods;
   const mods = requiredMods(save);
-  elements.requiredModsList.replaceChildren();
 
   if (!captured || !mods.length) {
     elements.detailModsSummary.textContent = "No mod snapshot captured.";
@@ -417,7 +547,7 @@ function renderRequiredMods(save) {
     elements.modsToggleButton.disabled = true;
     const empty = document.createElement("div");
     empty.className = "mod-row";
-    empty.textContent = "Capture a Teardown modlist to attach required mods to this save.";
+    empty.textContent = "Capture a Teardown modlist or link a saved profile.";
     elements.requiredModsList.append(empty);
     return;
   }
@@ -426,7 +556,7 @@ function renderRequiredMods(save) {
   const sourceName = captured.source?.name || "Unknown modlist";
   const capturedAt = captured.capturedAt ? formatDate(captured.capturedAt) : "unknown time";
   elements.detailModsSummary.textContent = `${summary.active}/${summary.total} currently active`;
-  renderModsSource(`Mod profile: ${sourceName}`, `Captured: ${capturedAt}`);
+  renderModsSource(`Mod snapshot: ${sourceName}`, `Captured: ${capturedAt}`);
   elements.modsToggleButton.disabled = false;
 
   const activeIds = activeModSet(elements.modlistSelect.value);
@@ -580,6 +710,7 @@ function renderDetail(visibleSaves = filteredSaves()) {
   $("#updateButton").disabled = !save;
   $("#deleteButton").disabled = !save;
   $("#copyPathButton").disabled = !save;
+  if (elements.exportButton) elements.exportButton.disabled = !save;
   elements.captureModsButton.disabled = !save;
   elements.compareModsButton.disabled = !save;
   elements.copyModLinksButton.disabled = !save;
@@ -611,10 +742,37 @@ function renderDetail(visibleSaves = filteredSaves()) {
     ? `<span class="icon icon-circle-check status-icon ${compatibility.tone}" aria-hidden="true"></span>`
     : `<span class="status-dot ${compatibility.tone}" aria-hidden="true"></span>`;
   elements.detailCompatibility.innerHTML = `${detailIcon}${compatibility.label}`;
+  const compatStatus = $("#compatCardStatus");
+  if (compatStatus) {
+    compatStatus.textContent = compatibility.label;
+    compatStatus.className = `card-status ${compatibility.tone}`;
+  }
   elements.detailNotes.textContent = save.notes || "No notes.";
   elements.detailInstruction.textContent = loadInstructionShort(save);
   elements.activatedPill.classList.toggle("hidden", !save.activatedAt);
   renderRequiredMods(save);
+  const modProfileStatus = $("#modProfileStatus");
+  if (modProfileStatus) {
+    const linkedProfile = save.modProfileId ? state.modProfileDetails.get(save.modProfileId) : null;
+    if (linkedProfile) {
+      const summary = summarizeProfileMods(linkedProfile, elements.modlistSelect?.value);
+      modProfileStatus.textContent = summary.total ? `${summary.active}/${summary.total} (linked)` : "Linked (empty)";
+      modProfileStatus.className = `card-status ${summary.missing ? "broken" : summary.inactive ? "untested" : "verified"}`;
+    } else if (save.modProfileId) {
+      modProfileStatus.textContent = "Linked";
+      modProfileStatus.className = "card-status untested";
+    } else {
+      const mods = requiredMods(save);
+      if (!mods.length) {
+        modProfileStatus.textContent = "Not captured";
+        modProfileStatus.className = "card-status untested";
+      } else {
+        const summary = summarizeRequiredMods(save, elements.modlistSelect?.value);
+        modProfileStatus.textContent = `${summary.active}/${summary.total} active`;
+        modProfileStatus.className = `card-status ${summary.missing ? "broken" : summary.inactive ? "untested" : "verified"}`;
+      }
+    }
+  }
 }
 
 function setModsExpanded(expanded) {
@@ -623,13 +781,97 @@ function setModsExpanded(expanded) {
   elements.modsToggleButton.setAttribute("aria-expanded", expanded ? "true" : "false");
 }
 
+const viewElements = Array.from(document.querySelectorAll(".view[data-view]"));
+
+function renderView() {
+  viewElements.forEach((view) => {
+    view.hidden = view.dataset.view !== state.view;
+  });
+}
+
+function renderBackupsView() {
+  if (state.view !== "backups") return;
+  elements.backupsList.replaceChildren();
+  const backups = state.backups || [];
+  elements.backupsEmpty.classList.toggle("hidden", backups.length > 0);
+  if (!backups.length) return;
+
+  backups.forEach((backup) => {
+    const row = document.createElement("article");
+    row.className = "backup-row";
+
+    const main = document.createElement("div");
+    main.className = "backup-main";
+
+    const title = document.createElement("div");
+    title.className = "backup-title";
+    title.textContent = backupHeadline(backup);
+
+    const meta = document.createElement("div");
+    meta.className = "backup-meta";
+    meta.textContent = [
+      formatDate(backup.createdAt),
+      formatBytes(backup.size),
+      backupKindLabel(backup),
+      backup.legacy ? "Legacy" : ""
+    ].filter(Boolean).join(" • ");
+
+    const detail = document.createElement("div");
+    detail.className = "backup-detail";
+    detail.textContent = backup.scenarioName
+      ? `Linked scenario: ${backup.scenarioName}`
+      : (backup.sourcePath || backup.id);
+
+    main.append(title, meta, detail);
+
+    const actions = document.createElement("div");
+    actions.className = "backup-actions";
+    const restore = document.createElement("button");
+    restore.type = "button";
+    restore.className = "ghost-button compact";
+    restore.textContent = "Restore";
+    restore.addEventListener("click", () => restoreBackupAction(backup).catch((error) => showToast(error.message)));
+    const drop = document.createElement("button");
+    drop.type = "button";
+    drop.className = "danger-button compact";
+    drop.textContent = "Delete";
+    drop.addEventListener("click", () => deleteBackupAction(backup).catch((error) => showToast(error.message)));
+    actions.append(restore, drop);
+
+    row.append(main, actions);
+    elements.backupsList.append(row);
+  });
+}
+
+function backupHeadline(backup) {
+  if (backup.scenarioName) return backup.scenarioName;
+  const reason = backup.reason || "manual";
+  const label = reason
+    .replace(/[-_]+/g, " ")
+    .replace(/\bbefore load\b/i, "Before load")
+    .replace(/\bbefore update\b/i, "Before update")
+    .replace(/\bbefore restore\b/i, "Before restore")
+    .replace(/\bmanual\b/i, "Manual");
+  return label.charAt(0).toUpperCase() + label.slice(1);
+}
+
+function backupKindLabel(backup) {
+  if (backup.sourceKind === "stored") return "From scenario";
+  if (backup.sourceKind === "active") return "From active quicksave";
+  return "";
+}
+
 function render() {
   const saves = filteredSaves();
+  renderView();
   renderStatus();
   renderFilters();
   renderModControls();
   renderList(saves);
   renderDetail(saves);
+  renderBackupsView();
+  renderModProfileList();
+  renderModProfileDetail();
 }
 
 async function refresh() {
@@ -649,7 +891,180 @@ async function refresh() {
   if (!state.selectedId && state.saves.length) {
     state.selectedId = state.saves[0].id;
   }
+  await refreshModProfiles();
+  const linkedId = state.saves.find((save) => save.id === state.selectedId)?.modProfileId;
+  if (linkedId && !state.modProfileDetails.has(linkedId)) {
+    try { await fetchModProfileDetail(linkedId); } catch {}
+  }
+  if (state.view === "backups") {
+    await refreshBackups();
+  }
   render();
+
+  if (status?.setupRequired && !state.setupVisible) {
+    openSetupDialog();
+  }
+}
+
+async function refreshBackups() {
+  const result = await api("/api/backups");
+  state.backups = result.backups || [];
+  state.backupsLoaded = true;
+}
+
+async function restoreBackupAction(backup) {
+  const headline = backupHeadline(backup);
+  const confirmed = window.confirm([
+    `Restore "${headline}" into Teardown's quicksave slot?`,
+    "",
+    "Your current quicksave.bin will be saved as a safety backup first.",
+    "",
+    `Backup created: ${formatDate(backup.createdAt)}`,
+    `Size: ${formatBytes(backup.size)}`
+  ].join("\n"));
+  if (!confirmed) return;
+
+  const result = await api(`/api/backups/${encodeURIComponent(backup.id)}/restore`, {
+    method: "POST",
+    body: JSON.stringify({})
+  });
+  await refreshBackups();
+  render();
+  showToast(result.safetyBackupId ? "Backup restored. Safety backup created." : "Backup restored.");
+}
+
+async function deleteBackupAction(backup) {
+  const headline = backupHeadline(backup);
+  const confirmed = window.confirm(`Delete backup "${headline}"?\n\nThis cannot be undone.`);
+  if (!confirmed) return;
+  await api(`/api/backups/${encodeURIComponent(backup.id)}`, { method: "DELETE" });
+  await refreshBackups();
+  render();
+  showToast("Backup deleted.");
+}
+
+async function backupActiveNow() {
+  const result = await api("/api/backup-active", {
+    method: "POST",
+    body: JSON.stringify({ label: "manual" })
+  });
+  await refreshBackups();
+  render();
+  showToast(`Backup created (${formatBytes(result.size)}).`);
+}
+
+async function importPackage() {
+  const picker = window.teardownPackage;
+  let sourcePath = "";
+  if (picker?.pickOpen) {
+    sourcePath = await picker.pickOpen(state.status?.packagesDir || "");
+    if (!sourcePath) return;
+  } else {
+    sourcePath = window.prompt("Enter the full path to a .tdqscenario package:");
+    if (!sourcePath) return;
+  }
+
+  const result = await api("/api/saves/import", {
+    method: "POST",
+    body: JSON.stringify({ sourcePath })
+  });
+  state.selectedId = result.id;
+  state.view = "library";
+  setActiveTopTab("refreshButton");
+  await refresh();
+  showToast(`Imported "${result.name}".`);
+}
+
+async function exportSelected() {
+  const save = selectedSave();
+  if (!save) return;
+  const picker = window.teardownPackage;
+  let destinationPath = "";
+  if (picker?.pickSave) {
+    const suggested = `${save.name.replace(/[\\/:*?"<>|]+/g, "").replace(/\s+/g, "_") || save.id}.tdqscenario`;
+    destinationPath = await picker.pickSave({ defaultPath: suggested });
+    if (!destinationPath) return;
+  }
+  const result = await api(`/api/saves/${encodeURIComponent(save.id)}/export`, {
+    method: "POST",
+    body: JSON.stringify(destinationPath ? { destinationPath } : {})
+  });
+  showInfo("Scenario exported", [
+    `${save.name} was packaged successfully.`,
+    "",
+    `Package: ${result.packagePath}`,
+    `Size: ${formatBytes(result.size)}`,
+    result.quicksaveHash ? `Hash: ${result.quicksaveHash}` : ""
+  ].filter(Boolean).join("\n"), { showPathActions: false, tone: "success" });
+}
+
+function renderSetupCandidates(candidates) {
+  elements.setupCandidateList.replaceChildren();
+  (candidates || []).forEach((candidate) => {
+    const row = document.createElement("div");
+    row.className = `candidate-row ${candidate.exists ? "exists" : "missing"}`;
+
+    const label = document.createElement("div");
+    label.className = "candidate-source";
+    label.textContent = candidate.source;
+
+    const value = document.createElement("div");
+    value.className = "candidate-path";
+    value.textContent = candidate.path;
+    value.title = candidate.path;
+
+    const status = document.createElement("span");
+    status.className = `candidate-status ${candidate.exists ? "exists" : "missing"}`;
+    status.textContent = candidate.exists ? "Found" : "Missing";
+
+    const use = document.createElement("button");
+    use.type = "button";
+    use.className = "ghost-button compact";
+    use.textContent = "Use";
+    use.disabled = !candidate.exists;
+    use.addEventListener("click", () => {
+      elements.setupQuicksavePathInput.value = candidate.path;
+    });
+
+    row.append(label, value, status, use);
+    elements.setupCandidateList.append(row);
+  });
+}
+
+function openSetupDialog() {
+  state.setupVisible = true;
+  renderSetupCandidates(state.status?.quicksavePathCandidates || []);
+  elements.setupQuicksavePathInput.value = state.settings?.quicksavePathOverride || "";
+  elements.setupDialog.showModal();
+}
+
+async function chooseQuicksavePathInto(input) {
+  const picker = window.teardownQuicksave;
+  if (!picker?.pick) {
+    showToast("File picker is only available in the desktop app.");
+    return;
+  }
+  const sourcePath = await picker.pick(input.value || state.status?.activeSavePath || "");
+  if (sourcePath) input.value = sourcePath;
+}
+
+async function saveSetupPath() {
+  const value = elements.setupQuicksavePathInput.value.trim();
+  await api("/api/settings", {
+    method: "PATCH",
+    body: JSON.stringify({ quicksavePathOverride: value })
+  });
+  state.setupVisible = false;
+  elements.setupDialog.close();
+  await refresh();
+  showToast(value ? "Quicksave path set." : "Quicksave path cleared.");
+}
+
+async function recheckQuicksavePath() {
+  const status = await api("/api/status");
+  state.status = status;
+  renderSetupCandidates(status.quicksavePathCandidates || []);
+  showToast(status.activeSavePathExists ? "Quicksave found." : "Still not found.");
 }
 
 async function createSave() {
@@ -865,11 +1280,32 @@ async function saveSettings() {
       backupBeforeLoad: elements.backupBeforeLoadInput.value,
       loadBackupEvery: elements.loadBackupEveryInput.value,
       backupBeforeUpdate: elements.backupBeforeUpdateInput.value,
-      updateBackupEvery: elements.updateBackupEveryInput.value
+      updateBackupEvery: elements.updateBackupEveryInput.value,
+      quicksavePathOverride: elements.quicksavePathInput.value.trim()
     })
   });
   state.settings = settings;
-  showToast("Backup settings saved.");
+  await refresh();
+  showToast("Settings saved.");
+}
+
+function renderQuicksavePathHint() {
+  const status = state.status;
+  const override = elements.quicksavePathInput.value.trim();
+  if (!status) {
+    elements.quicksavePathHint.textContent = "";
+    return;
+  }
+  if (override) {
+    elements.quicksavePathHint.textContent = `Override: ${override}`;
+    elements.quicksavePathHint.title = override;
+    return;
+  }
+  const source = status.activeSavePathSource || "auto";
+  elements.quicksavePathHint.textContent = status.activeSavePathExists
+    ? `Auto-detected (${source}): ${status.activeSavePath}`
+    : `Not found yet. Will use: ${status.activeSavePath}`;
+  elements.quicksavePathHint.title = status.activeSavePath;
 }
 
 function openSettingsDialog() {
@@ -877,13 +1313,18 @@ function openSettingsDialog() {
     backupBeforeLoad: "every_n",
     loadBackupEvery: 5,
     backupBeforeUpdate: "every_n",
-    updateBackupEvery: 5
+    updateBackupEvery: 5,
+    quicksavePathOverride: ""
   };
   elements.backupBeforeLoadInput.value = settings.backupBeforeLoad;
   elements.loadBackupEveryInput.value = settings.loadBackupEvery;
   elements.backupBeforeUpdateInput.value = settings.backupBeforeUpdate;
   elements.updateBackupEveryInput.value = settings.updateBackupEvery;
+  elements.quicksavePathInput.value = settings.quicksavePathOverride || "";
+  renderQuicksavePathHint();
   updateSettingsFrequencyState();
+  fillAboutSection();
+  setActiveSettingsSection("general");
   elements.settingsDialog.showModal();
 }
 
@@ -938,13 +1379,77 @@ function setupWindowControls() {
 }
 
 $("#refreshButton").addEventListener("click", () => {
-  setActiveTopTab("refreshButton");
+  setActiveTopTab("refreshButton", "library");
   state.filter = "all";
   state.query = "";
   if (elements.searchInput) elements.searchInput.value = "";
   refresh()
     .then(() => showToast("Library refreshed."))
     .catch((error) => showToast(error.message));
+});
+
+$("#modsTabButton").addEventListener("click", () => {
+  switchTab("mods");
+  refreshModProfiles().then(render).catch((error) => showToast(error.message));
+});
+
+elements.modProfileSearch.addEventListener("input", (event) => {
+  state.modProfileQuery = event.target.value;
+  renderModProfileList();
+});
+
+elements.newModProfileButton.addEventListener("click", () => {
+  openModProfileDialog("create");
+});
+
+elements.confirmModProfileButton.addEventListener("click", (event) => {
+  event.preventDefault();
+  confirmModProfileDialog()
+    .then((ok) => { if (ok) elements.modProfileDialog.close(); })
+    .catch((error) => showToast(error.message));
+});
+
+elements.modProfileCompareSelect.addEventListener("change", () => renderModProfileDetail());
+
+elements.modProfileRecaptureButton.addEventListener("click", () => {
+  recaptureSelectedProfile().catch((error) => showToast(error.message));
+});
+
+elements.modProfileCopyLinksButton.addEventListener("click", () => {
+  copyProfileLinks().catch((error) => showToast(error.message));
+});
+
+elements.modProfileEditButton.addEventListener("click", () => {
+  if (state.selectedModProfileId) openModProfileDialog("edit", state.selectedModProfileId);
+});
+
+elements.modProfileDeleteButton.addEventListener("click", () => {
+  deleteSelectedProfile().catch((error) => showToast(error.message));
+});
+
+elements.linkProfileButton.addEventListener("click", () => {
+  openLinkProfileDialog();
+});
+
+elements.confirmLinkProfileButton.addEventListener("click", (event) => {
+  event.preventDefault();
+  confirmLinkProfile()
+    .then(() => elements.linkProfileDialog.close())
+    .catch((error) => showToast(error.message));
+});
+
+elements.newProfileFromLinkButton.addEventListener("click", () => {
+  elements.linkProfileDialog.close();
+  switchTab("mods");
+  openModProfileDialog("create");
+});
+
+$("#communityTabButton").addEventListener("click", () => {
+  switchTab("community");
+});
+
+$("#versionsTabButton").addEventListener("click", () => {
+  switchTab("versions");
 });
 
 elements.searchInput.addEventListener("input", (event) => {
@@ -1041,8 +1546,51 @@ $("#deleteButton").addEventListener("click", () => {
 });
 
 $("#revealButton").addEventListener("click", () => {
-  setActiveTopTab("revealButton");
+  switchTab("backups");
+});
+
+elements.importPackageButton.addEventListener("click", () => {
+  importPackage().catch((error) => showToast(error.message));
+});
+
+elements.exportButton.addEventListener("click", () => {
+  exportSelected().catch((error) => showToast(error.message));
+});
+
+elements.backupNowButton.addEventListener("click", () => {
+  backupActiveNow().catch((error) => showToast(error.message));
+});
+
+elements.openBackupsFolderButton.addEventListener("click", () => {
   openManagedPath("backups").catch((error) => showToast(error.message));
+});
+
+elements.quicksavePathInput.addEventListener("input", renderQuicksavePathHint);
+
+elements.quicksavePathBrowseButton.addEventListener("click", () => {
+  chooseQuicksavePathInto(elements.quicksavePathInput).catch((error) => showToast(error.message));
+});
+
+elements.quicksavePathResetButton.addEventListener("click", () => {
+  elements.quicksavePathInput.value = "";
+  renderQuicksavePathHint();
+});
+
+elements.setupBrowseButton.addEventListener("click", () => {
+  chooseQuicksavePathInto(elements.setupQuicksavePathInput).catch((error) => showToast(error.message));
+});
+
+elements.confirmSetupButton.addEventListener("click", (event) => {
+  event.preventDefault();
+  saveSetupPath().catch((error) => showToast(error.message));
+});
+
+elements.setupRecheckButton.addEventListener("click", () => {
+  recheckQuicksavePath().catch((error) => showToast(error.message));
+});
+
+elements.setupDialog.addEventListener("close", () => {
+  state.setupVisible = false;
 });
 
 $("#pathsButton").addEventListener("click", () => {
@@ -1065,7 +1613,478 @@ $("#openDeletedButton").addEventListener("click", () => {
   openManagedPath("deleted").catch((error) => showToast(error.message));
 });
 
-setupWindowControls();
-refresh().catch((error) => {
-  showToast(error.message);
+async function refreshModProfiles() {
+  const result = await api("/api/mod-profiles");
+  state.modProfiles = result.profiles || [];
+  state.modProfilesLoaded = true;
+  if (state.selectedModProfileId && !state.modProfiles.some((profile) => profile.id === state.selectedModProfileId)) {
+    state.selectedModProfileId = null;
+    state.modProfileDetails.delete(state.selectedModProfileId);
+  }
+  if (!state.selectedModProfileId && state.modProfiles.length) {
+    state.selectedModProfileId = state.modProfiles[0].id;
+  }
+  if (state.selectedModProfileId) {
+    await fetchModProfileDetail(state.selectedModProfileId);
+  }
+}
+
+async function fetchModProfileDetail(id, force = false) {
+  if (!id) return null;
+  if (!force && state.modProfileDetails.has(id)) return state.modProfileDetails.get(id);
+  const profile = await api(`/api/mod-profiles/${encodeURIComponent(id)}`);
+  state.modProfileDetails.set(id, profile);
+  return profile;
+}
+
+function filteredModProfiles() {
+  const query = state.modProfileQuery.trim().toLowerCase();
+  if (!query) return state.modProfiles;
+  return state.modProfiles.filter((profile) => {
+    return [profile.name, profile.notes, profile.sourceModlistName]
+      .some((value) => String(value || "").toLowerCase().includes(query));
+  });
+}
+
+function profileLinkedScenarios(profileId) {
+  return state.saves.filter((save) => save.modProfileId === profileId);
+}
+
+function modStatusForProfileMod(mod, activeIds, knownMods) {
+  const installed = mod.installed !== false || (knownMods.get(mod.id)?.installed === true);
+  if (!installed) return { label: "Missing", tone: "missing" };
+  if (!activeIds.has(mod.id)) return { label: "Inactive", tone: "inactive" };
+  return { label: "Active", tone: "active" };
+}
+
+function summarizeProfileMods(profile, modlistId = currentModlistId()) {
+  const mods = profile?.mods || [];
+  const activeIds = activeModSet(modlistId);
+  const knownMods = modsMap();
+  const summary = { total: mods.length, active: 0, inactive: 0, missing: 0 };
+  mods.forEach((mod) => {
+    const status = modStatusForProfileMod(mod, activeIds, knownMods);
+    summary[status.tone] += 1;
+  });
+  return summary;
+}
+
+function renderModProfileList() {
+  if (!elements.modProfileList) return;
+  const profiles = filteredModProfiles();
+  elements.modProfileList.replaceChildren();
+
+  if (!profiles.length) {
+    const empty = document.createElement("div");
+    empty.className = "scenario-empty";
+    empty.textContent = state.modProfiles.length
+      ? "No matching profiles."
+      : "No mod profiles yet. Click + to capture your active Teardown modlist.";
+    elements.modProfileList.append(empty);
+    return;
+  }
+
+  profiles.forEach((profile) => {
+    const selected = profile.id === state.selectedModProfileId;
+    const row = document.createElement("article");
+    row.className = `scenario-row${selected ? " selected" : ""}`;
+    row.setAttribute("role", "option");
+    row.setAttribute("aria-selected", selected ? "true" : "false");
+    row.tabIndex = 0;
+    row.dataset.id = profile.id;
+
+    const thumbnail = document.createElement("span");
+    thumbnail.className = "scenario-thumb profile-thumb";
+    thumbnail.setAttribute("aria-hidden", "true");
+    thumbnail.innerHTML = `<span class="icon icon-puzzle" aria-hidden="true"></span>`;
+
+    const copy = document.createElement("span");
+    copy.className = "scenario-copy";
+
+    const title = document.createElement("span");
+    title.className = "scenario-name";
+    title.textContent = profile.name;
+
+    const map = document.createElement("span");
+    map.className = "scenario-map";
+    map.textContent = profile.sourceModlistName
+      ? `From: ${profile.sourceModlistName}`
+      : "Custom profile";
+
+    const linked = profileLinkedScenarios(profile.id);
+    const meta = document.createElement("span");
+    meta.className = "profile-meta";
+    const modCount = document.createElement("span");
+    modCount.className = "profile-mod-count";
+    modCount.textContent = `${profile.modCount} mod${profile.modCount === 1 ? "" : "s"}`;
+    const linkedTag = document.createElement("span");
+    linkedTag.className = "profile-linked-tag";
+    linkedTag.textContent = linked.length ? `Linked: ${linked.length}` : "Unlinked";
+    meta.append(modCount, linkedTag);
+
+    copy.append(title, map, meta);
+
+    const utilities = document.createElement("span");
+    utilities.className = "scenario-utilities";
+    const size = document.createElement("span");
+    size.className = "scenario-size";
+    size.textContent = formatShortDate(profile.updatedAt);
+    utilities.append(size);
+
+    row.append(thumbnail, copy, utilities);
+    row.addEventListener("click", () => selectModProfile(profile.id));
+    row.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        selectModProfile(profile.id);
+      }
+    });
+    elements.modProfileList.append(row);
+  });
+}
+
+function selectModProfile(id) {
+  state.selectedModProfileId = id;
+  fetchModProfileDetail(id)
+    .then(() => render())
+    .catch((error) => showToast(error.message));
+}
+
+function renderModProfileDetail() {
+  if (!elements.modProfileDetail) return;
+  const id = state.selectedModProfileId;
+  const profile = id ? state.modProfileDetails.get(id) : null;
+  const visible = filteredModProfiles().some((entry) => entry.id === id);
+  const empty = !profile || !visible;
+
+  elements.modProfileEmpty.classList.toggle("hidden", !empty);
+  elements.modProfileDetail.classList.toggle("hidden", empty);
+
+  if (elements.modsActiveModlist) {
+    const selectedModlistId = state.modInventory?.selectedModlistId;
+    const list = (state.modInventory?.modlists || []).find((entry) => entry.id === selectedModlistId);
+    elements.modsActiveModlist.textContent = list ? `${list.name} (${list.mods.length})` : "Not detected";
+  }
+
+  if (empty || !profile) return;
+
+  elements.modProfileName.textContent = profile.name;
+  const linked = profileLinkedScenarios(profile.id);
+  if (linked.length) {
+    elements.modProfileLinkedPill.classList.remove("hidden");
+    elements.modProfileLinkedPill.textContent = `Linked to ${linked.length} scenario${linked.length === 1 ? "" : "s"}`;
+  } else {
+    elements.modProfileLinkedPill.classList.add("hidden");
+  }
+
+  elements.modProfileModCount.textContent = `${profile.mods.length}`;
+  elements.modProfileCreated.textContent = formatDate(profile.createdAt);
+  elements.modProfileSource.textContent = profile.sourceModlistName
+    ? `${profile.sourceModlistName}${profile.sourceModlistId ? ` (id ${profile.sourceModlistId})` : ""}`
+    : "Manual";
+  elements.modProfileUpdated.textContent = formatDate(profile.updatedAt);
+  elements.modProfileNotes.textContent = profile.notes || "No notes.";
+
+  populateModlistSelect(elements.modProfileCompareSelect, state.modInventory?.selectedModlistId || "");
+
+  const compareId = elements.modProfileCompareSelect.value || state.modInventory?.selectedModlistId || "";
+  const summary = summarizeProfileMods(profile, compareId);
+  elements.modProfileSummary.textContent = summary.total
+    ? `${summary.active}/${summary.total} active`
+    : "Empty";
+  elements.modProfileSummary.className = `card-status ${summary.missing ? "broken" : summary.inactive ? "untested" : "verified"}`;
+
+  renderProfileModsList(profile, compareId);
+}
+
+function renderProfileModsList(profile, modlistId) {
+  if (!elements.modProfileModsList) return;
+  elements.modProfileModsList.replaceChildren();
+  if (!profile.mods.length) {
+    const empty = document.createElement("div");
+    empty.className = "mod-row";
+    empty.textContent = "This profile has no mods yet. Re-capture from a Teardown modlist.";
+    elements.modProfileModsList.append(empty);
+    return;
+  }
+
+  const activeIds = activeModSet(modlistId);
+  const knownMods = modsMap();
+  profile.mods.forEach((mod) => {
+    const current = knownMods.get(mod.id) || mod;
+    const status = modStatusForProfileMod(mod, activeIds, knownMods);
+    const row = document.createElement("div");
+    row.className = "mod-row";
+
+    const main = document.createElement("div");
+    main.className = "mod-main";
+    const label = document.createElement(current.link ? "a" : "span");
+    label.textContent = current.name || mod.name || mod.id;
+    if (current.link) {
+      label.href = current.link;
+      label.target = "_blank";
+      label.rel = "noreferrer";
+    }
+    const meta = document.createElement("div");
+    meta.className = "mod-meta";
+    meta.textContent = `${current.kind || mod.kind || "mod"} - ${mod.id}`;
+    main.append(label, meta);
+
+    const badge = document.createElement("span");
+    badge.className = `mod-status ${status.tone}`;
+    badge.textContent = status.label;
+    row.append(main, badge);
+    elements.modProfileModsList.append(row);
+  });
+}
+
+function openModProfileDialog(mode, profileId) {
+  state.modProfileDialogMode = mode;
+  state.modProfileDialogId = profileId || null;
+  const isEdit = mode === "edit";
+  elements.modProfileDialogTitle.textContent = isEdit ? "Edit Mod Profile" : "New Mod Profile";
+  elements.confirmModProfileButton.textContent = isEdit ? "Save Changes" : "Save Profile";
+
+  if (isEdit && profileId) {
+    const profile = state.modProfileDetails.get(profileId);
+    elements.modProfileNameInput.value = profile?.name || "";
+    elements.modProfileNotesInput.value = profile?.notes || "";
+  } else {
+    elements.modProfileNameInput.value = "";
+    elements.modProfileNotesInput.value = "";
+  }
+
+  elements.modProfileSourceField.classList.toggle("hidden", isEdit);
+  elements.modProfileSourceHint.classList.toggle("hidden", isEdit);
+  if (!isEdit) {
+    populateModlistSelect(elements.modProfileSourceInput, state.modInventory?.selectedModlistId || "");
+  }
+
+  elements.modProfileDialog.showModal();
+  elements.modProfileNameInput.focus();
+}
+
+async function confirmModProfileDialog() {
+  const name = elements.modProfileNameInput.value.trim();
+  if (!name) {
+    showToast("Profile name is required.");
+    return false;
+  }
+  const notes = elements.modProfileNotesInput.value.trim();
+  const isEdit = state.modProfileDialogMode === "edit";
+  if (isEdit) {
+    const id = state.modProfileDialogId;
+    const updated = await api(`/api/mod-profiles/${encodeURIComponent(id)}`, {
+      method: "PATCH",
+      body: JSON.stringify({ name, notes })
+    });
+    state.modProfileDetails.set(id, updated);
+    await refreshModProfiles();
+    showToast("Mod profile updated.");
+  } else {
+    const fromModlistId = elements.modProfileSourceInput.value;
+    const created = await api("/api/mod-profiles", {
+      method: "POST",
+      body: JSON.stringify({ name, notes, fromModlistId })
+    });
+    state.modProfileDetails.set(created.id, created);
+    state.selectedModProfileId = created.id;
+    await refreshModProfiles();
+    showToast(`Mod profile "${created.name}" created with ${created.mods.length} mod${created.mods.length === 1 ? "" : "s"}.`);
+  }
+  render();
+  return true;
+}
+
+async function recaptureSelectedProfile() {
+  const id = state.selectedModProfileId;
+  if (!id) return;
+  const profile = state.modProfileDetails.get(id);
+  if (!profile) return;
+  const sourceId = profile.sourceModlistId || state.modInventory?.selectedModlistId;
+  const sourceName = profile.sourceModlistName || "the current modlist";
+  const confirmed = window.confirm([
+    `Re-capture "${profile.name}" from ${sourceName}?`,
+    "",
+    "This replaces the profile's mods with whatever's active in the chosen Teardown modlist."
+  ].join("\n"));
+  if (!confirmed) return;
+  const updated = await api(`/api/mod-profiles/${encodeURIComponent(id)}/recapture`, {
+    method: "POST",
+    body: JSON.stringify({ modlistId: sourceId })
+  });
+  state.modProfileDetails.set(id, updated);
+  await refreshModProfiles();
+  render();
+  showToast(`Re-captured ${updated.mods.length} mod${updated.mods.length === 1 ? "" : "s"}.`);
+}
+
+async function deleteSelectedProfile() {
+  const id = state.selectedModProfileId;
+  if (!id) return;
+  const profile = state.modProfileDetails.get(id);
+  if (!profile) return;
+  const linkedCount = profileLinkedScenarios(id).length;
+  const lines = [
+    `Delete mod profile "${profile.name}"?`,
+    "",
+    "The profile folder will be moved to the trash inside mod-profiles/.deleted/."
+  ];
+  if (linkedCount) lines.push("", `${linkedCount} scenario${linkedCount === 1 ? "" : "s"} currently linked to this profile will be unlinked.`);
+  if (!window.confirm(lines.join("\n"))) return;
+  await api(`/api/mod-profiles/${encodeURIComponent(id)}`, { method: "DELETE" });
+  state.modProfileDetails.delete(id);
+  state.selectedModProfileId = null;
+  await refresh();
+  showToast("Mod profile deleted.");
+}
+
+async function copyProfileLinks() {
+  const profile = state.modProfileDetails.get(state.selectedModProfileId);
+  if (!profile?.mods?.length) {
+    showToast("Profile has no mods to copy.");
+    return;
+  }
+  const lines = profile.mods.map((mod) => {
+    const link = mod.link || workshopUrlFromMod(mod);
+    return link ? `${mod.name || mod.id} - ${link}` : `${mod.name || mod.id} - ${mod.id}`;
+  });
+  await navigator.clipboard.writeText(lines.join("\n"));
+  showToast(`Copied ${profile.mods.length} mod link${profile.mods.length === 1 ? "" : "s"}.`);
+}
+
+function workshopUrlFromMod(mod) {
+  const id = String(mod?.id || "");
+  const match = id.match(/^steam-(\d+)$/);
+  return match ? `https://steamcommunity.com/sharedfiles/filedetails/?id=${match[1]}` : "";
+}
+
+function openLinkProfileDialog() {
+  const save = selectedSave();
+  if (!save) return;
+  elements.linkProfileSelect.replaceChildren();
+  const blank = document.createElement("option");
+  blank.value = "";
+  blank.textContent = "(none — clear linkage)";
+  elements.linkProfileSelect.append(blank);
+  state.modProfiles.forEach((profile) => {
+    const option = document.createElement("option");
+    option.value = profile.id;
+    option.textContent = `${profile.name} (${profile.modCount} mods)`;
+    elements.linkProfileSelect.append(option);
+  });
+  elements.linkProfileSelect.value = save.modProfileId || "";
+  elements.linkProfileDialog.showModal();
+}
+
+async function confirmLinkProfile() {
+  const save = selectedSave();
+  if (!save) return;
+  const profileId = elements.linkProfileSelect.value;
+  await api(`/api/saves/${encodeURIComponent(save.id)}/link-profile`, {
+    method: "POST",
+    body: JSON.stringify({ modProfileId: profileId })
+  });
+  if (profileId) {
+    await fetchModProfileDetail(profileId);
+  }
+  await refresh();
+  showToast(profileId ? "Mod profile linked." : "Mod profile unlinked.");
+}
+
+function toggleDetailCard(header) {
+  const button = header.querySelector(".card-collapse");
+  const targetId = header.dataset.target;
+  const body = targetId ? document.getElementById(targetId) : header.parentElement?.querySelector(".detail-card-body");
+  if (!body || !button) return;
+  const expanded = button.getAttribute("aria-expanded") !== "false";
+  const next = !expanded;
+  button.setAttribute("aria-expanded", next ? "true" : "false");
+  body.hidden = !next;
+}
+
+document.querySelectorAll(".detail-card-header.collapsible").forEach((header) => {
+  header.addEventListener("click", (event) => {
+    if (event.target.closest("button") && !event.target.closest(".card-collapse")) return;
+    toggleDetailCard(header);
+  });
 });
+
+document.addEventListener("click", (event) => {
+  const goTab = event.target.closest("[data-go-tab]");
+  if (goTab) {
+    event.preventDefault();
+    switchTab(goTab.dataset.goTab);
+  }
+});
+
+function setActiveSettingsSection(name) {
+  document.querySelectorAll(".settings-nav-item").forEach((button) => {
+    button.classList.toggle("active", button.dataset.settingsSection === name);
+  });
+  document.querySelectorAll(".settings-section").forEach((section) => {
+    section.classList.toggle("active", section.dataset.settingsSection === name);
+  });
+}
+
+document.querySelectorAll(".settings-nav-item").forEach((button) => {
+  button.addEventListener("click", (event) => {
+    event.preventDefault();
+    setActiveSettingsSection(button.dataset.settingsSection);
+  });
+});
+
+function fillAboutSection() {
+  const aboutAppVersion = $("#aboutAppVersion");
+  const aboutSchemaVersion = $("#aboutSchemaVersion");
+  const aboutTeardownVersion = $("#aboutTeardownVersion");
+  const aboutManagerRoot = $("#aboutManagerRoot");
+  const aboutLogPath = $("#aboutLogPath");
+  const status = state.status || {};
+  if (aboutSchemaVersion) aboutSchemaVersion.textContent = status.schemaVersion ?? "1";
+  if (aboutTeardownVersion) {
+    const install = status.teardownInstall || {};
+    aboutTeardownVersion.textContent = install.version || "Not detected";
+    aboutTeardownVersion.title = install.exePath || install.diagnostic || "";
+  }
+  if (aboutManagerRoot) {
+    aboutManagerRoot.textContent = status.managerRoot || "-";
+    aboutManagerRoot.title = status.managerRoot || "";
+  }
+  if (aboutLogPath) {
+    aboutLogPath.textContent = status.logPath || "-";
+    aboutLogPath.title = status.logPath || "";
+  }
+  // app version: read from a hidden meta? Hardcode for now to match package.json.
+  if (aboutAppVersion) aboutAppVersion.textContent = "0.1.0";
+}
+
+$("#openLogFileButton")?.addEventListener("click", () => {
+  const logPath = state.status?.logPath;
+  if (!logPath) return;
+  navigator.clipboard.writeText(logPath).then(() => showToast(`Log path copied: ${logPath}`));
+});
+
+$("#openManagerRootButton")?.addEventListener("click", () => {
+  openManagedPath("manager").catch((error) => showToast(error.message));
+});
+
+function applyVersionsTabVisibility() {
+  const tab = $("#versionsTabButton");
+  if (!tab) return;
+  const enabled = Boolean(state.settings?.enableVersionsTab);
+  tab.hidden = !enabled;
+  if (!enabled && state.view === "versions") {
+    switchTab("library");
+  }
+}
+
+setupWindowControls();
+refresh()
+  .then(() => {
+    fillAboutSection();
+    applyVersionsTabVisibility();
+  })
+  .catch((error) => {
+    showToast(error.message);
+  });

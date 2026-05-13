@@ -37,6 +37,49 @@ ipcMain.handle("preview:pick", async (event, defaultPath) => {
   return result.filePaths[0];
 });
 
+ipcMain.handle("package:pick-open", async (event, defaultPath) => {
+  const window = windowFromEvent(event);
+  const result = await dialog.showOpenDialog(window, {
+    title: "Import Scenario Package",
+    defaultPath,
+    properties: ["openFile"],
+    filters: [
+      { name: "Teardown Scenario Package", extensions: ["tdqscenario"] },
+      { name: "All Files", extensions: ["*"] }
+    ]
+  });
+  if (result.canceled || !result.filePaths.length) return null;
+  return result.filePaths[0];
+});
+
+ipcMain.handle("package:pick-save", async (event, options) => {
+  const window = windowFromEvent(event);
+  const result = await dialog.showSaveDialog(window, {
+    title: "Export Scenario Package",
+    defaultPath: options?.defaultPath,
+    filters: [
+      { name: "Teardown Scenario Package", extensions: ["tdqscenario"] }
+    ]
+  });
+  if (result.canceled || !result.filePath) return null;
+  return result.filePath;
+});
+
+ipcMain.handle("quicksave:pick", async (event, defaultPath) => {
+  const window = windowFromEvent(event);
+  const result = await dialog.showOpenDialog(window, {
+    title: "Locate quicksave.bin",
+    defaultPath,
+    properties: ["openFile"],
+    filters: [
+      { name: "Teardown quicksave", extensions: ["bin"] },
+      { name: "All Files", extensions: ["*"] }
+    ]
+  });
+  if (result.canceled || !result.filePaths.length) return null;
+  return result.filePaths[0];
+});
+
 async function createWindow() {
   appServer = await startServer({ port: 0 });
 
